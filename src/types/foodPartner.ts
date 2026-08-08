@@ -225,4 +225,19 @@ export interface IFoodOrder {
     preparationTimeMinutes?: number;
     estimatedDeliveryTime?: string;
   };
-  timeline?: { status: string; timestamp: string; note?: stri
+  timeline?: { status: string; timestamp: string; note?: string }[];
+}
+
+export interface IFoodOffer {
+  _id: string;
+  code: string;
+  discountType: string;
+  discountValue: number;
+  minOrderAmount: number;
+  maxDiscountAmount: number;
+  expiryDate: string;
+  status: string;
+  fundingSource: 'RESTAURANT_FUNDED' | 'APEXBEE_FUNDED' | 'SHARED';
+  restaurantContributionPercent: number;
+  apexbeeContributionPercent: number;
+}

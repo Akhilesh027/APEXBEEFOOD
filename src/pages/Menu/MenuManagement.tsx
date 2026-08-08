@@ -892,4 +892,6 @@ export const MenuManagement: React.FC = () => {
           </div>
         </div>
       )}
-    <
+    </div>
+  );
+};

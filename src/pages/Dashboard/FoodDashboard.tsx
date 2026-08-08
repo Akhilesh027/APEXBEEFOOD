@@ -323,4 +323,9 @@ export const FoodDashboard: React.FC = () => {
                   </div>
                 </div>
               ))}
-          </
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
