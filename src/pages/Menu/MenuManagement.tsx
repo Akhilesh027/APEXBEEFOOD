@@ -510,7 +510,18 @@ export const MenuManagement: React.FC = () => {
               {filteredItems.map((item) => {
                 const comm = item.platformCommissionPercent || 12;
                 const platformShare = item.platformShareAmount || Math.round((item.basePrice * comm) / 100);
-                const vendorPayout = item.vendorPayoutAmount || (item.basePrice - platformShare);
+                const isApexBeeComm = item.distributedFrom === 'apexbee_commission' || Boolean(item.vendorCommissionPercent && item.vendorCommissionPercent > 0);
+                const vCommPct = item.vendorCommissionPercent || 0;
+                const vCommAmount = item.vendorCommissionAmount !== undefined && item.vendorCommissionAmount !== null
+                  ? item.vendorCommissionAmount
+                  : Math.round(((item.basePrice * vCommPct) / 100) * 100) / 100;
+                
+                const priceBase = item.offerPrice || item.basePrice;
+                const vendorPayout = isApexBeeComm
+                  ? Math.max(0, Math.round((priceBase - vCommAmount) * 100) / 100)
+                  : (item.vendorPayoutAmount && item.vendorPayoutAmount !== (item.basePrice - platformShare))
+                  ? item.vendorPayoutAmount
+                  : priceBase;
                 const isPendingAdmin = item.approvalStatus === 'PENDING_ADMIN_REVIEW';
                 const isPendingRestaurant = item.approvalStatus === 'PENDING_RESTAURANT_ACCEPTANCE';
                 const isLive = item.approvalStatus === 'PUBLISHED_LIVE' || item.status === 'ACTIVE';
@@ -605,7 +616,11 @@ export const MenuManagement: React.FC = () => {
                         {isPendingRestaurant && (
                           <div className="p-3 bg-slate-950 border border-emerald-500/40 rounded-2xl space-y-2">
                             <div className="text-[11px] font-bold text-slate-200">
-                              ⚡ Admin Proposed <strong className="text-purple-400">{comm}% Platform Commission</strong> (₹{platformShare}). Your net payout: <strong className="text-emerald-400">₹{vendorPayout}</strong>.
+                              {isApexBeeComm ? (
+                                <>⚡ Admin Proposed <strong className="text-amber-400">{vCommPct}% ApexBee Commission</strong> (₹{vCommAmount}). Your net payout: <strong className="text-emerald-400">₹{vendorPayout}</strong>.</>
+                              ) : (
+                                <>⚡ Admin Proposed Pricing. Your net payout: <strong className="text-emerald-400">₹{vendorPayout}</strong>.</>
+                              )}
                             </div>
                             <button
                               onClick={async () => {
@@ -630,7 +645,9 @@ export const MenuManagement: React.FC = () => {
                               <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
                               <span>Live on Platform</span>
                             </div>
-                            <span className="font-mono text-[10px] text-slate-400 font-semibold">{comm}% Comm | Payout ₹{vendorPayout}</span>
+                            <span className="font-mono text-[10px] text-slate-400 font-semibold">
+                              {isApexBeeComm ? `${vCommPct}% ApexBee Comm | ` : ''}Payout ₹{vendorPayout}
+                            </span>
                           </div>
                         )}
                       </div>

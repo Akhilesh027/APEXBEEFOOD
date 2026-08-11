@@ -188,6 +188,9 @@ export interface IFoodMenuItem {
   addonGroups?: IFoodAddonGroup[];
   platformCommissionPercent?: number;
   platformShareAmount?: number;
+  vendorCommissionPercent?: number;
+  vendorCommissionAmount?: number;
+  distributedFrom?: string;
   vendorPayoutAmount?: number;
   approvalStatus?: 'PENDING_ADMIN_REVIEW' | 'PENDING_RESTAURANT_ACCEPTANCE' | 'PUBLISHED_LIVE' | string;
 }
