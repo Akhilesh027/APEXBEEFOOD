@@ -14,13 +14,58 @@ import {
   Volume2,
 } from 'lucide-react';
 import { foodService } from '../../services/foodService';
-import { IFoodOrder } from '../../types/foodPartner';
+const KitchenLiveCountdownBadge = ({ estimatedDeliveryTime, prepMins }: { estimatedDeliveryTime?: string; prepMins?: number }) => {
+  const [timeLeft, setTimeLeft] = useState<string>('');
+  const [isOverdue, setIsOverdue] = useState<boolean>(false);
+
+  useEffect(() => {
+    if (!estimatedDeliveryTime) return;
+
+    const updateTimer = () => {
+      const target = new Date(estimatedDeliveryTime).getTime();
+      const now = Date.now();
+      const diffSecs = Math.floor((target - now) / 1000);
+
+      if (diffSecs <= 0) {
+        const overMins = Math.floor(Math.abs(diffSecs) / 60);
+        const overSecs = Math.abs(diffSecs) % 60;
+        setTimeLeft(`🚨 PREP OVERDUE (${overMins}m ${overSecs}s EXPIRED)`);
+        setIsOverdue(true);
+      } else {
+        const m = Math.floor(diffSecs / 60);
+        const s = diffSecs % 60;
+        setTimeLeft(`⏱️ ${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')} Left`);
+        setIsOverdue(false);
+      }
+    };
+
+    updateTimer();
+    const interval = setInterval(updateTimer, 1000);
+    return () => clearInterval(interval);
+  }, [estimatedDeliveryTime]);
+
+  if (isOverdue) {
+    return (
+      <div className="text-xs font-black text-white flex items-center space-x-2 bg-gradient-to-r from-red-600 via-rose-600 to-red-600 px-3.5 py-1.5 rounded-xl border border-red-400 shadow-lg shadow-red-600/30 animate-pulse font-mono">
+        <AlertTriangle className="w-4 h-4 text-amber-300 animate-bounce shrink-0" />
+        <span>{timeLeft}</span>
+      </div>
+    );
+  }
+
+  return (
+    <div className="text-xs font-bold text-amber-300 flex items-center space-x-2 bg-slate-950 px-3 py-1.5 rounded-xl border border-amber-400/40 font-mono">
+      <Flame className="w-3.5 h-3.5 text-amber-400 animate-pulse shrink-0" />
+      <span>{timeLeft || `⏱️ ${prepMins || 20}m Prep Window`}</span>
+    </div>
+  );
+};
 
 export const LiveOrders: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'all' | 'placed' | 'preparing' | 'ready'>('all');
   const [orders, setOrders] = useState<IFoodOrder[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selectedPrepTime, setSelectedPrepTime] = useState<number>(20);
+  const [selectedPrepTimeMap, setSelectedPrepTimeMap] = useState<Record<string, number>>({});
   const [activeAcceptId, setActiveAcceptId] = useState<string | null>(null);
   const [activeOtpModalId, setActiveOtpModalId] = useState<string | null>(null);
   const [inputOtp, setInputOtp] = useState<string>('');
@@ -46,11 +91,12 @@ export const LiveOrders: React.FC = () => {
   }, []);
 
   const handleAccept = async (orderId: string) => {
+    const prepTime = selectedPrepTimeMap[orderId] || 15;
     try {
-      await foodService.acceptOrder(orderId, selectedPrepTime);
+      await foodService.acceptOrder(orderId, prepTime);
       setActiveAcceptId(null);
     } catch (err: any) {
-      console.warn('Accept order API warning:', err);
+      console.error('Accept order error:', err);
     } finally {
       fetchLiveOrders();
     }
@@ -106,6 +152,42 @@ export const LiveOrders: React.FC = () => {
           <span>Refresh Orders</span>
         </button>
       </div>
+
+      {/* 🚨 PAGE LEVEL OVERDUE ALERT BANNER */}
+      {(() => {
+        const overdueOrders = orders.filter((o) => {
+          const st = (o.orderStatus || '').toLowerCase();
+          const isPendingDelivery = ['accepted', 'preparing', 'confirmed', 'packed'].includes(st);
+          const estTime = (o as any).estimatedDeliveryTime;
+          return isPendingDelivery && estTime && new Date(estTime).getTime() <= Date.now();
+        });
+
+        if (overdueOrders.length === 0) return null;
+
+        return (
+          <div className="bg-gradient-to-r from-red-950 via-rose-900 to-red-950 border-2 border-red-500 text-white p-4 rounded-3xl shadow-2xl flex flex-col md:flex-row items-start md:items-center justify-between gap-4 animate-pulse">
+            <div className="flex items-start space-x-3">
+              <div className="w-10 h-10 rounded-2xl bg-red-500 text-white flex items-center justify-center font-black text-xl shrink-0 shadow-md">
+                🚨
+              </div>
+              <div>
+                <h3 className="font-extrabold text-sm text-red-200 uppercase tracking-wider font-heading">
+                  URGENT KITCHEN ALERT: {overdueOrders.length} Food Order(s) Overdue &amp; Not Yet Delivered!
+                </h3>
+                <p className="text-xs text-rose-200 mt-0.5">
+                  The preparation timer has expired for order(s) #{overdueOrders.map((o) => o.orderNumber).join(', ')}. Please mark them as <strong>Ready for Pickup</strong> or dispatch to rider immediately!
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={() => setActiveTab('preparing')}
+              className="px-4 py-2 bg-amber-400 hover:bg-amber-300 text-slate-950 font-black text-xs rounded-xl shadow-md cursor-pointer shrink-0"
+            >
+              View Overdue Orders &rarr;
+            </button>
+          </div>
+        );
+      })()}
 
       {/* FILTER TABS */}
       <div className="flex bg-slate-900/90 p-1.5 rounded-2xl border border-slate-800 max-w-2xl">
@@ -246,8 +328,8 @@ export const LiveOrders: React.FC = () => {
                       {activeAcceptId === order._id ? (
                         <div className="flex items-center space-x-2 bg-slate-950 p-1.5 rounded-xl border border-amber-500/40">
                           <select
-                            value={selectedPrepTime}
-                            onChange={(e) => setSelectedPrepTime(Number(e.target.value))}
+                            value={selectedPrepTimeMap[order._id] || 15}
+                            onChange={(e) => setSelectedPrepTimeMap((prev) => ({ ...prev, [order._id]: Number(e.target.value) }))}
                             className="bg-slate-900 text-xs text-amber-300 px-2 py-1.5 rounded-lg border border-slate-800 font-bold"
                           >
                             <option value={15}>15 Mins</option>
@@ -284,9 +366,15 @@ export const LiveOrders: React.FC = () => {
 
                   {isPreparing && (
                     <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 w-full">
-                      <div className="text-xs font-bold text-amber-400 flex items-center space-x-2 bg-amber-500/10 px-3.5 py-2 rounded-xl border border-amber-500/30">
-                        <Flame className="w-4 h-4 text-amber-400 animate-bounce" />
-                        <span>🔥 Chef is Currently Preparing Food in Kitchen</span>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <div className="text-xs font-bold text-amber-400 flex items-center space-x-2 bg-amber-500/10 px-3.5 py-2 rounded-xl border border-amber-500/30">
+                          <Flame className="w-4 h-4 text-amber-400 animate-bounce" />
+                          <span>🔥 Chef Preparing Food</span>
+                        </div>
+                        <KitchenLiveCountdownBadge
+                          estimatedDeliveryTime={(order as any).estimatedDeliveryTime || (order as any).orderSummary?.estimatedDeliveryTime}
+                          prepMins={(order as any).estimatedDeliveryMinutes || (order as any).orderSummary?.preparationTimeMinutes || 15}
+                        />
                       </div>
                       <button
                         onClick={() => handleTransitionStatus(order._id, 'ready_for_pickup')}
