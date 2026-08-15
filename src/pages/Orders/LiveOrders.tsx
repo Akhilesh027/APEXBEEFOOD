@@ -14,6 +14,7 @@ import {
   Volume2,
 } from 'lucide-react';
 import { foodService } from '../../services/foodService';
+import { IFoodOrder } from '../../types/foodPartner';
 const KitchenLiveCountdownBadge = ({ estimatedDeliveryTime, prepMins }: { estimatedDeliveryTime?: string; prepMins?: number }) => {
   const [timeLeft, setTimeLeft] = useState<string>('');
   const [isOverdue, setIsOverdue] = useState<boolean>(false);
