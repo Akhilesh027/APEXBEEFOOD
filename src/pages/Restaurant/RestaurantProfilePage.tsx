@@ -80,7 +80,7 @@ export const RestaurantProfilePage: React.FC = () => {
     locality: '',
     city: 'Hyderabad',
     state: 'Telangana',
-    pincode: '500001',
+    pincode: '',
 
     cuisines: ['Hyderabadi', 'South Indian'],
     cuisinesText: 'Hyderabadi, South Indian',
@@ -116,7 +116,7 @@ export const RestaurantProfilePage: React.FC = () => {
           locality: p.locality || '',
           city: p.city || 'Hyderabad',
           state: p.state || 'Telangana',
-          pincode: p.pincode || '500001',
+          pincode: p.pincode || '',
 
           cuisines: p.cuisines || ['Hyderabadi', 'South Indian'],
           cuisinesText: Array.isArray(p.cuisines) ? p.cuisines.join(', ') : p.cuisines || 'Hyderabadi, South Indian',

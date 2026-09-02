@@ -41,7 +41,7 @@ export const OnboardingWizard: React.FC = () => {
     locality: restaurant?.locality || '',
     city: restaurant?.city || 'Hyderabad',
     state: restaurant?.state || 'Telangana',
-    pincode: restaurant?.pincode || '500001',
+    pincode: restaurant?.pincode || '',
 
     cuisines: restaurant?.cuisines || ['Hyderabadi', 'South Indian'],
     averagePreparationMinutes: restaurant?.averagePreparationMinutes || 20,
