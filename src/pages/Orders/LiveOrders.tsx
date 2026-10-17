@@ -435,7 +435,7 @@ export const LiveOrders: React.FC = () => {
                         </div>
                       </div>
                       <span className="px-2.5 py-1 rounded-lg bg-cyan-950 text-xs font-mono font-bold text-cyan-200 border border-cyan-500/40">
-                        {order.isSelfPickup ? '🛍️ Self Pickup' : '🛵 Doorstep Delivery'}
+                        {order.isSelfPickup || order.deliveryType === 'pickup' ? '🛍️ Self Pickup' : '🛵 Doorstep Delivery'}
                       </span>
                     </div>
                   )}

@@ -1,10 +1,24 @@
 import axios from 'axios';
 
-const defaultApiHost = typeof window !== 'undefined' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1'
-  ? `http://${window.location.hostname}:5500/api`
-  : 'https://server.apexbee.in/api';
+const getBaseApiUrl = (): string => {
+  if (import.meta.env.VITE_API_URL) {
+    return import.meta.env.VITE_API_URL;
+  }
+  if (typeof window !== 'undefined') {
+    const hostname = window.location.hostname;
+    // Production ApexBee domains (e.g. food.apexbee.in) must route to server.apexbee.in
+    if (hostname.includes('apexbee.in')) {
+      return 'https://server.apexbee.in/api';
+    }
+    // LAN IP address (e.g., 192.168.x.x) for local network device testing
+    if (/^(\d{1,3}\.){3}\d{1,3}$/.test(hostname)) {
+      return `http://${hostname}:5500/api`;
+    }
+  }
+  return 'https://server.apexbee.in/api';
+};
 
-export const API_BASE_URL = import.meta.env.VITE_API_URL || defaultApiHost;
+export const API_BASE_URL = getBaseApiUrl();
 
 export const api = axios.create({
   baseURL: `${API_BASE_URL}/food-partner`,
