@@ -81,9 +81,9 @@ export const DeliveryExecutivesPage: React.FC = () => {
   };
 
   const handleToggleDuty = (id: string) => {
-    const updated = riders.map((r) => {
+    const updated: IDeliveryExecutive[] = riders.map((r) => {
       if (r.id === id) {
-        const next = r.status === 'OFFLINE' ? 'IDLE' : 'OFFLINE';
+        const next: IDeliveryExecutive['status'] = r.status === 'OFFLINE' ? 'IDLE' : 'OFFLINE';
         return { ...r, status: next };
       }
       return r;

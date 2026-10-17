@@ -43,6 +43,7 @@ export interface IRestaurantProfile {
   email: string;
   fssaiNumber: string;
   gstNumber?: string;
+  gstin?: string;
   panNumber?: string;
   address: string;
   locality: string;
@@ -79,6 +80,7 @@ export interface IRestaurantProfile {
   rating: {
     average: number;
     totalReviews: number;
+    count?: number;
   };
 }
 
@@ -220,6 +222,7 @@ export interface IFoodOrder {
   paymentStatus: 'Pending' | 'Paid' | 'Failed' | 'Refunded';
   orderStatus: 'placed' | 'Placed' | 'accepted' | 'preparing' | 'ready_for_pickup' | 'picked_up' | 'out_for_delivery' | 'delivered' | 'cancelled' | string;
   deliveryType?: string;
+  isSelfPickup?: boolean;
   orderType?: string;
   orderChannel?: 'ONLINE_WEBSITE' | 'OFFLINE_QR';
   tableNumber?: string;

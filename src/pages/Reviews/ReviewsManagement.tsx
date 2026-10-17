@@ -28,7 +28,7 @@ export const ReviewsManagement: React.FC = () => {
     ? restaurant?.rating?.average || 4.8
     : (Number(restaurant?.rating) || 4.8);
   const ratingCount = typeof restaurant?.rating === 'object'
-    ? restaurant?.rating?.count || 0
+    ? restaurant?.rating?.totalReviews || restaurant?.rating?.count || 0
     : 0;
 
   const filteredReviews = reviews.filter((r) =>

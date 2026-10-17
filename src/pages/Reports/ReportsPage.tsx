@@ -319,7 +319,7 @@ export const ReportsPage: React.FC = () => {
         <div className="glass-panel rounded-3xl border border-slate-800 overflow-hidden">
           <div className="p-5 border-b border-slate-800">
             <h3 className="font-bold text-slate-100 text-sm font-heading">
-              GSTIN: {restaurant?.gstin || '36ABCDE1234F1Z5'}
+              GSTIN: {restaurant?.gstin || restaurant?.gstNumber || '36ABCDE1234F1Z5'}
             </h3>
             <p className="text-xs text-slate-400 mt-0.5">Composite Restaurant GST Summary at standard 5% rate (without ITC)</p>
           </div>
