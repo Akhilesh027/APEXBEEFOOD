@@ -1,4 +1,4 @@
-import { api } from './api';
+import { api, publicCustomerFoodApi } from './api';
 
 export const foodService = {
   // --- AUTH ---
@@ -48,7 +48,7 @@ export const foodService = {
 
   // --- LIVE ORDERS ---
   getOrders: (params?: any) => api.get('/orders', { params }),
-  getLiveOrdersFeed: () => api.get('/orders/live-feed'),
+  getLiveOrdersFeed: (params?: any) => api.get('/orders/live-feed', { params }),
   acceptOrder: (orderId: string, preparationTimeMinutes: number) => api.post(`/orders/${orderId}/accept`, { preparationTimeMinutes }),
   rejectOrder: (orderId: string, reason?: string) => api.post(`/orders/${orderId}/reject`, { reason }),
   updateOrderStatus: (orderId: string, status: string) => api.patch(`/orders/${orderId}/status`, { status }),
@@ -65,6 +65,15 @@ export const foodService = {
     api.patch(`/dining/bookings/${id}/status`, data),
   getDiningInfo: () => api.get('/dining/info'),
   updateDiningInfo: (data: { diningEnabled?: boolean; diningInfo?: any }) => api.put('/dining/info', data),
+
+  // --- TABLES & SEPARATE QR ENGINE ---
+  getTablesWithQRs: () => api.get('/tables/qr'),
+  createTableWithQR: (data: any) => api.post('/tables/qr', data),
+  updateTableQR: (id: string, data: any) => api.put(`/tables/qr/${id}`, data),
+  deleteTableQR: (id: string) => api.delete(`/tables/qr/${id}`),
+  generateAllSeparateTableQRs: (data?: any) => api.post('/tables/qr/generate-all', data || {}),
+  getScannedMenu: (tokenOrTable: string) => publicCustomerFoodApi.get(`/qr-menu/${tokenOrTable}`),
+  placeCustomerTableOrder: (orderData: any) => publicCustomerFoodApi.post('/qr-menu/order', orderData),
 
   // --- FINANCE & ANALYTICS ---
   getEarnings: () => api.get('/finance/earnings'),

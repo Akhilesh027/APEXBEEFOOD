@@ -7,26 +7,34 @@ export const StaffManagement: React.FC = () => {
   const [phone, setPhone] = useState('');
   const [role, setRole] = useState<'KITCHEN_CHEF' | 'MANAGER' | 'BILLING'>('KITCHEN_CHEF');
 
-  const [staffList, setStaffList] = useState([
-    { id: 's-1', name: 'Chef Suresh Kumar', phone: '9876543210', role: 'KITCHEN_CHEF', permissions: ['Live Orders', 'Menu Sold-out Toggle'] },
-    { id: 's-2', name: 'Anil Reddy (Manager)', phone: '9876543211', role: 'MANAGER', permissions: ['All Features', 'Finance', 'Menu Engine'] },
-  ]);
+  const [staffList, setStaffList] = useState<any[]>(() => {
+    try {
+      const stored = localStorage.getItem('apexbee_restaurant_staff');
+      if (stored) return JSON.parse(stored);
+    } catch (e) {}
+    return [];
+  });
+
+  const saveStaff = (updated: any[]) => {
+    setStaffList(updated);
+    try {
+      localStorage.setItem('apexbee_restaurant_staff', JSON.stringify(updated));
+    } catch (e) {}
+  };
 
   const handleAddStaff = (e: React.FormEvent) => {
     e.preventDefault();
     if (!name || !phone) return;
 
-    setStaffList((prev) => [
-      ...prev,
-      {
-        id: `s-${Date.now()}`,
-        name,
-        phone,
-        role,
-        permissions: role === 'MANAGER' ? ['All Features'] : ['Live Orders', 'Availability'],
-      },
-    ]);
+    const created = {
+      id: `s-${Date.now()}`,
+      name,
+      phone,
+      role,
+      permissions: role === 'MANAGER' ? ['All Features'] : ['Live Orders', 'Availability'],
+    };
 
+    saveStaff([...staffList, created]);
     setShowModal(false);
     setName('');
     setPhone('');
@@ -56,8 +64,23 @@ export const StaffManagement: React.FC = () => {
       </div>
 
       {/* STAFF LIST */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-        {staffList.map((staff) => (
+      {staffList.length === 0 ? (
+        <div className="p-12 text-center rounded-3xl bg-slate-900/40 border border-slate-800 text-slate-400 space-y-3">
+          <Users className="w-10 h-10 text-slate-600 mx-auto" />
+          <div className="text-base font-bold text-slate-200">No Staff Members Added Yet</div>
+          <p className="text-xs text-slate-500 max-w-md mx-auto">
+            Add kitchen chefs, counter managers, or billing staff to assign order preparation and menu management permissions.
+          </p>
+          <button
+            onClick={() => setShowModal(true)}
+            className="px-4 py-2 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold rounded-xl text-xs transition cursor-pointer"
+          >
+            + Add First Staff Member
+          </button>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+          {staffList.map((staff) => (
           <div key={staff.id} className="glass-panel p-5 rounded-3xl border border-slate-800 space-y-4 flex flex-col justify-between">
             <div>
               <div className="flex items-start justify-between">
@@ -91,7 +114,7 @@ export const StaffManagement: React.FC = () => {
             <div className="pt-3 border-t border-slate-800/80 flex items-center justify-between text-xs text-slate-400">
               <span className="text-emerald-400 font-bold text-[11px]">Active Access</span>
               <button
-                onClick={() => setStaffList((prev) => prev.filter((s) => s.id !== staff.id))}
+                onClick={() => saveStaff(staffList.filter((s) => s.id !== staff.id))}
                 className="text-rose-400 hover:text-rose-300 text-xs font-semibold bg-transparent border-none cursor-pointer flex items-center space-x-1"
               >
                 <Trash2 className="w-3.5 h-3.5" />
@@ -101,6 +124,7 @@ export const StaffManagement: React.FC = () => {
           </div>
         ))}
       </div>
+    )}
 
       {/* ADD STAFF MODAL */}
       {showModal && (

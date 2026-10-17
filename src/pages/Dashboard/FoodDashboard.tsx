@@ -13,6 +13,8 @@ import {
   ChevronRight,
   ArrowUpRight,
   RefreshCw,
+  Globe,
+  QrCode,
 } from 'lucide-react';
 import { foodService } from '../../services/foodService';
 import { useFoodAuthStore } from '../../store/useFoodAuthStore';
@@ -203,27 +205,41 @@ export const FoodDashboard: React.FC = () => {
           <div className="text-[10px] text-slate-400 mt-1">Gross orders revenue</div>
         </div>
 
-        <div className="glass-panel p-4 rounded-2xl border border-slate-800">
-          <div className="flex items-center justify-between text-slate-400 text-xs font-medium mb-1">
-            <span>New Orders</span>
-            <ShoppingBag className="w-4 h-4 text-amber-400" />
+        <Link
+          to="/orders/live?channel=online"
+          className="glass-panel p-4 rounded-2xl border border-cyan-500/30 bg-cyan-950/20 hover:border-cyan-400 transition cursor-pointer"
+        >
+          <div className="flex items-center justify-between text-cyan-400 text-xs font-bold mb-1">
+            <span>Online Website</span>
+            <Globe className="w-4 h-4 text-cyan-400" />
           </div>
-          <div className="text-xl font-extrabold font-heading text-amber-400">
-            {counts.placed || 0}
+          <div className="text-xl font-extrabold font-heading text-cyan-300">
+            {liveOrders.filter((o) => {
+              const ot = (o.orderType || '').toUpperCase();
+              const n = (o.customerNotes || '').toLowerCase();
+              return ot !== 'DINE_IN' && ot !== 'OFFLINE' && ot !== 'QR_CODE' && !o.tableNumber && !n.includes('table');
+            }).length}
           </div>
-          <div className="text-[10px] text-slate-400 mt-1">Needs acceptance</div>
-        </div>
+          <div className="text-[10px] text-cyan-400/80 mt-1 font-semibold">Web Delivery &amp; Pickup &rarr;</div>
+        </Link>
 
-        <div className="glass-panel p-4 rounded-2xl border border-slate-800">
-          <div className="flex items-center justify-between text-slate-400 text-xs font-medium mb-1">
-            <span>Preparing</span>
-            <Flame className="w-4 h-4 text-amber-500" />
+        <Link
+          to="/orders/live?channel=offline"
+          className="glass-panel p-4 rounded-2xl border border-purple-500/30 bg-purple-950/20 hover:border-purple-400 transition cursor-pointer"
+        >
+          <div className="flex items-center justify-between text-purple-400 text-xs font-bold mb-1">
+            <span>Offline / QR Orders</span>
+            <QrCode className="w-4 h-4 text-purple-400" />
           </div>
-          <div className="text-xl font-extrabold font-heading text-slate-100">
-            {counts.preparing || 0}
+          <div className="text-xl font-extrabold font-heading text-purple-300">
+            {liveOrders.filter((o) => {
+              const ot = (o.orderType || '').toUpperCase();
+              const n = (o.customerNotes || '').toLowerCase();
+              return ot === 'DINE_IN' || ot === 'OFFLINE' || ot === 'QR_CODE' || Boolean(o.tableNumber) || n.includes('table');
+            }).length}
           </div>
-          <div className="text-[10px] text-slate-400 mt-1">Kitchen preparing</div>
-        </div>
+          <div className="text-[10px] text-purple-400/80 mt-1 font-semibold">Dine-In Table Scans &rarr;</div>
+        </Link>
 
         <div className="glass-panel p-4 rounded-2xl border border-slate-800">
           <div className="flex items-center justify-between text-slate-400 text-xs font-medium mb-1">
@@ -260,29 +276,45 @@ export const FoodDashboard: React.FC = () => {
           <div className="space-y-4">
             {liveOrders
               .filter((o) => (o.orderStatus as string) === 'placed' || (o.orderStatus as string) === 'Placed')
-              .map((order) => (
-                <div key={order._id} className="p-4 bg-slate-900 border border-amber-500/30 rounded-2xl flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-lg shadow-amber-500/5">
-                  <div className="space-y-1">
+              .map((order) => {
+                const ot = (order.orderType || '').toUpperCase();
+                const n = (order.customerNotes || '').toLowerCase();
+                const isQr = ot === 'DINE_IN' || ot === 'OFFLINE' || ot === 'QR_CODE' || Boolean(order.tableNumber) || n.includes('table');
+
+                return (
+                  <div key={order._id} className="p-4 bg-slate-900 border border-amber-500/30 rounded-2xl flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-lg shadow-amber-500/5">
+                    <div className="space-y-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="font-extrabold text-amber-400 text-sm font-mono">#{order.orderNumber}</span>
+                        {isQr ? (
+                          <span className="px-2 py-0.5 bg-purple-500/20 text-purple-300 border border-purple-500/40 rounded text-[10px] font-extrabold uppercase flex items-center gap-1">
+                            <QrCode className="w-3 h-3" />
+                            <span>OFFLINE QR {order.tableNumber ? `(T-${order.tableNumber})` : ''}</span>
+                          </span>
+                        ) : (
+                          <span className="px-2 py-0.5 bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 rounded text-[10px] font-extrabold uppercase flex items-center gap-1">
+                            <Globe className="w-3 h-3" />
+                            <span>ONLINE WEBSITE</span>
+                          </span>
+                        )}
+                        <span className="px-2 py-0.5 bg-amber-500/20 text-amber-300 rounded text-[10px] font-bold uppercase">NEW ORDER</span>
+                        <span className="text-xs text-slate-400">{new Date(order.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                      </div>
+
+                      <div className="text-xs text-slate-200 font-medium">
+                        Customer: <strong>{order.customerId?.name || 'Customer'}</strong> ({order.customerId?.phone || 'N/A'})
+                      </div>
+
+                      <div className="text-xs text-slate-300 font-semibold">
+                        Items ({order.items?.length || 0}): {order.items?.map((i) => `${i.productName} x${i.quantity}`).join(', ')}
+                      </div>
+                    </div>
+
                     <div className="flex items-center space-x-3">
-                      <span className="font-extrabold text-amber-400 text-sm font-mono">#{order.orderNumber}</span>
-                      <span className="px-2 py-0.5 bg-amber-500/20 text-amber-300 rounded text-[10px] font-bold uppercase">NEW ORDER</span>
-                      <span className="text-xs text-slate-400">{new Date(order.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
-                    </div>
-
-                    <div className="text-xs text-slate-200 font-medium">
-                      Customer: <strong>{order.customerId?.name || 'Customer'}</strong> ({order.customerId?.phone || 'N/A'})
-                    </div>
-
-                    <div className="text-xs text-slate-300 font-semibold">
-                      Items ({order.items?.length || 0}): {order.items?.map((i) => `${i.productName} x${i.quantity}`).join(', ')}
-                    </div>
-                  </div>
-
-                  <div className="flex items-center space-x-3">
-                    <div className="text-right mr-2">
-                      <div className="text-sm font-extrabold text-slate-100">₹{order.totalAmount}</div>
-                      <div className="text-[10px] text-emerald-400 font-bold uppercase">{order.paymentStatus || 'PAID'}</div>
-                    </div>
+                      <div className="text-right mr-2">
+                        <div className="text-sm font-extrabold text-slate-100">₹{order.totalAmount}</div>
+                        <div className="text-[10px] text-emerald-400 font-bold uppercase">{order.paymentStatus || 'PAID'}</div>
+                      </div>
 
                     {acceptingOrderId === order._id ? (
                       <div className="flex items-center space-x-2 bg-slate-950 p-2 rounded-xl border border-amber-500/40">
@@ -322,7 +354,8 @@ export const FoodDashboard: React.FC = () => {
                     )}
                   </div>
                 </div>
-              ))}
+              );
+            })}
           </div>
         )}
       </div>

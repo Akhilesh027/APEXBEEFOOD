@@ -15,6 +15,7 @@ import {
   Clock,
   ArrowUpDown,
   Power,
+  QrCode,
 } from 'lucide-react';
 import { foodService } from '../../services/foodService';
 import { IFoodMenuItem, IFoodMenuCategory } from '../../types/foodPartner';
@@ -387,6 +388,14 @@ export const MenuManagement: React.FC = () => {
             >
               + Add Dish
             </button>
+
+            <button
+              onClick={() => navigate('/qr-codes')}
+              className="px-3.5 py-1.5 bg-slate-900 hover:bg-slate-800 text-amber-400 border border-amber-500/30 hover:border-amber-500 font-bold rounded-xl text-xs transition shadow-sm whitespace-nowrap cursor-pointer flex items-center space-x-1.5"
+            >
+              <QrCode className="w-3.5 h-3.5" />
+              <span>Table QR Menus</span>
+            </button>
           </div>
         ) : (
           <button
@@ -509,19 +518,21 @@ export const MenuManagement: React.FC = () => {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {filteredItems.map((item) => {
                 const comm = item.platformCommissionPercent || 12;
-                const platformShare = item.platformShareAmount || Math.round((item.basePrice * comm) / 100);
+                const sellingPrice = (item.offerPrice && item.offerPrice > 0) ? item.offerPrice : item.basePrice;
+                const platformShare = item.platformShareAmount !== undefined && item.platformShareAmount !== null
+                  ? item.platformShareAmount
+                  : Math.round(((sellingPrice * comm) / 100) * 100) / 100;
                 const isApexBeeComm = item.distributedFrom === 'apexbee_commission' || Boolean(item.vendorCommissionPercent && item.vendorCommissionPercent > 0);
                 const vCommPct = item.vendorCommissionPercent || 0;
                 const vCommAmount = item.vendorCommissionAmount !== undefined && item.vendorCommissionAmount !== null
                   ? item.vendorCommissionAmount
-                  : Math.round(((item.basePrice * vCommPct) / 100) * 100) / 100;
+                  : Math.round(((sellingPrice * vCommPct) / 100) * 100) / 100;
                 
-                const priceBase = item.offerPrice || item.basePrice;
-                const vendorPayout = isApexBeeComm
-                  ? Math.max(0, Math.round((priceBase - vCommAmount) * 100) / 100)
-                  : (item.vendorPayoutAmount && item.vendorPayoutAmount !== (item.basePrice - platformShare))
+                const vendorPayout = item.vendorPayoutAmount !== undefined && item.vendorPayoutAmount !== null
                   ? item.vendorPayoutAmount
-                  : priceBase;
+                  : isApexBeeComm
+                  ? Math.max(0, Math.round((sellingPrice - vCommAmount) * 100) / 100)
+                  : Math.max(0, Math.round((sellingPrice - platformShare) * 100) / 100);
                 const isPendingAdmin = item.approvalStatus === 'PENDING_ADMIN_REVIEW';
                 const isPendingRestaurant = item.approvalStatus === 'PENDING_RESTAURANT_ACCEPTANCE';
                 const isLive = item.approvalStatus === 'PUBLISHED_LIVE' || item.status === 'ACTIVE';
@@ -617,9 +628,9 @@ export const MenuManagement: React.FC = () => {
                           <div className="p-3 bg-slate-950 border border-emerald-500/40 rounded-2xl space-y-2">
                             <div className="text-[11px] font-bold text-slate-200">
                               {isApexBeeComm ? (
-                                <>⚡ Admin Proposed <strong className="text-amber-400">{vCommPct}% ApexBee Commission</strong> (₹{vCommAmount}). Your net payout: <strong className="text-emerald-400">₹{vendorPayout}</strong>.</>
+                                <>⚡ Admin Proposed <strong className="text-amber-400">{vCommPct}% ApexBee Commission</strong> (₹{vCommAmount} on Selling Price ₹{sellingPrice}). Your net payout: <strong className="text-emerald-400">₹{vendorPayout}</strong>.</>
                               ) : (
-                                <>⚡ Admin Proposed Pricing. Your net payout: <strong className="text-emerald-400">₹{vendorPayout}</strong>.</>
+                                <>⚡ Admin Proposed <strong className="text-amber-400">{comm}% Platform Fee</strong> (₹{platformShare} on Selling Price ₹{sellingPrice}). Your net payout: <strong className="text-emerald-400">₹{vendorPayout}</strong>.</>
                               )}
                             </div>
                             <button
@@ -646,7 +657,7 @@ export const MenuManagement: React.FC = () => {
                               <span>Live on Platform</span>
                             </div>
                             <span className="font-mono text-[10px] text-slate-400 font-semibold">
-                              {isApexBeeComm ? `${vCommPct}% ApexBee Comm | ` : ''}Payout ₹{vendorPayout}
+                              {isApexBeeComm ? `${vCommPct}% Comm (₹${vCommAmount}) | ` : `${comm}% Fee (₹${platformShare}) | `}Payout ₹{vendorPayout}
                             </span>
                           </div>
                         )}

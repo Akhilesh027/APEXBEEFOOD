@@ -19,6 +19,19 @@ import { StaffManagement } from './pages/Staff/StaffManagement';
 import { SubscriptionManagement } from './pages/Subscription/SubscriptionManagement';
 import { RestaurantSettingsPage } from './pages/Settings/RestaurantSettingsPage';
 import { DiningManagement } from './pages/Dining/DiningManagement';
+import { TablesManagement } from './pages/Tables/TablesManagement';
+import { WaiterRequestsPage } from './pages/WaiterRequests/WaiterRequestsPage';
+import { ReservationsPage } from './pages/Reservations/ReservationsPage';
+import { POSTerminalPage } from './pages/POS/POSTerminalPage';
+import { CustomersPage } from './pages/Customers/CustomersPage';
+import { DeliveryExecutivesPage } from './pages/Delivery/DeliveryExecutivesPage';
+import { ExpensesPage } from './pages/Expenses/ExpensesPage';
+import { PaymentsPage } from './pages/Payments/PaymentsPage';
+import { ReportsPage } from './pages/Reports/ReportsPage';
+import { CashRegisterPage } from './pages/CashRegister/CashRegisterPage';
+import { InventorySuppliersPage } from './pages/InventorySuppliers/InventorySuppliersPage';
+import { CustomerMenuView } from './pages/PublicMenu/CustomerMenuView';
+import { QRManagementPage } from './pages/QRManagement/QRManagementPage';
 
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const isAuthenticated = useFoodAuthStore((state) => state.isAuthenticated);
@@ -36,6 +49,11 @@ export const App: React.FC = () => {
         <Route path="/login" element={<FoodPartnerLogin />} />
         <Route path="/verify-otp" element={<FoodPartnerLogin />} />
         <Route path="/onboarding" element={<ProtectedRoute><OnboardingWizard /></ProtectedRoute>} />
+
+        {/* PUBLIC CUSTOMER MENU SCAN ROUTES (WHEN USER SCANS QR CODE) */}
+        <Route path="/menu/view" element={<CustomerMenuView />} />
+        <Route path="/customer-menu" element={<CustomerMenuView />} />
+        <Route path="/m/:qrId" element={<CustomerMenuView />} />
 
         {/* PROTECTED FOOD PORTAL ROUTES */}
         <Route
@@ -67,6 +85,20 @@ export const App: React.FC = () => {
           <Route path="staff" element={<StaffManagement />} />
           <Route path="subscription" element={<SubscriptionManagement />} />
           <Route path="settings" element={<RestaurantSettingsPage />} />
+
+          {/* NEW MODULE ROUTES */}
+          <Route path="tables" element={<TablesManagement />} />
+          <Route path="qr-codes" element={<QRManagementPage />} />
+          <Route path="waiter-requests" element={<WaiterRequestsPage />} />
+          <Route path="reservations" element={<ReservationsPage />} />
+          <Route path="pos" element={<POSTerminalPage />} />
+          <Route path="customers" element={<CustomersPage />} />
+          <Route path="delivery-executives" element={<DeliveryExecutivesPage />} />
+          <Route path="expenses" element={<ExpensesPage />} />
+          <Route path="payments" element={<PaymentsPage />} />
+          <Route path="reports" element={<ReportsPage />} />
+          <Route path="cash-register" element={<CashRegisterPage />} />
+          <Route path="inventory-suppliers" element={<InventorySuppliersPage />} />
         </Route>
 
         <Route path="*" element={<Navigate to="/dashboard" replace />} />

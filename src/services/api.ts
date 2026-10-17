@@ -1,6 +1,10 @@
 import axios from 'axios';
 
-export const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://server.apexbee.in/api';
+const defaultApiHost = typeof window !== 'undefined' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1'
+  ? `http://${window.location.hostname}:5500/api`
+  : 'https://server.apexbee.in/api';
+
+export const API_BASE_URL = import.meta.env.VITE_API_URL || defaultApiHost;
 
 export const api = axios.create({
   baseURL: `${API_BASE_URL}/food-partner`,
@@ -32,3 +36,10 @@ api.interceptors.response.use(
     return Promise.reject(error);
   }
 );
+
+export const publicCustomerFoodApi = axios.create({
+  baseURL: `${API_BASE_URL}/food`,
+  headers: {
+    'Content-Type': 'application/json',
+  },
+});

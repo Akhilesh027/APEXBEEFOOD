@@ -26,10 +26,24 @@ import {
   ChevronDown,
   Building2,
   AlertTriangle,
+  LayoutGrid,
+  BellRing,
+  CalendarCheck,
+  Calculator,
+  Bike,
+  Receipt,
+  Coins,
+  Boxes,
+  FileSpreadsheet,
+  CreditCard,
+  QrCode,
+  Globe,
 } from 'lucide-react';
 import { useFoodAuthStore } from '../../store/useFoodAuthStore';
 import { foodService } from '../../services/foodService';
 import { NotificationSound } from '../common/NotificationSound';
+import { qrMenuStorage, ICustomerPlacedOrder, IWaiterCall } from '../../services/qrMenuStorage';
+import { announceOrderVoice, announceWaiterCallVoice } from '../../utils/orderSpeechAnnouncer';
 
 export const FoodPartnerLayout: React.FC = () => {
   const location = useLocation();
@@ -41,6 +55,7 @@ export const FoodPartnerLayout: React.FC = () => {
   const [liveCount, setLiveCount] = useState(0);
   const [hasNewOrderAlert, setHasNewOrderAlert] = useState(false);
   const [updatingStatus, setUpdatingStatus] = useState(false);
+  const [waiterCallsCount, setWaiterCallsCount] = useState(() => qrMenuStorage.getWaiterCalls().filter((c) => c.status === 'PENDING').length);
 
   // Fetch latest restaurant profile on layout mount
   useEffect(() => {
@@ -57,7 +72,7 @@ export const FoodPartnerLayout: React.FC = () => {
     loadProfile();
   }, []);
 
-  // Poll live orders every 10 seconds
+  // Poll live orders and waiter calls every 10 seconds
   useEffect(() => {
     const fetchLiveFeed = async () => {
       try {
@@ -73,12 +88,47 @@ export const FoodPartnerLayout: React.FC = () => {
       } catch (err) {
         // Silent fallback
       }
+
+      // Refresh pending waiter calls count
+      try {
+        const pending = qrMenuStorage.getWaiterCalls().filter((c) => c.status === 'PENDING').length;
+        setWaiterCallsCount(pending);
+      } catch (e) {}
     };
 
     fetchLiveFeed();
     const interval = setInterval(fetchLiveFeed, 10000);
     return () => clearInterval(interval);
   }, [liveCount, soundMuted]);
+
+  // Global listeners for real-time order & waiter speech announcements across all portal pages
+  useEffect(() => {
+    const handleOrderEvent = (e: any) => {
+      const order: ICustomerPlacedOrder = e.detail;
+      if (!order) return;
+      if (!soundMuted) {
+        const itemsDesc = order.items.map((i) => `${i.quantity} ${i.item.name}`).join(', ');
+        announceOrderVoice(order.tableNumber, itemsDesc, order.grandTotal);
+      }
+      setLiveCount((prev) => prev + 1);
+    };
+
+    const handleWaiterCallEvent = (e: any) => {
+      const call: IWaiterCall = e.detail;
+      if (!call) return;
+      if (!soundMuted) {
+        announceWaiterCallVoice(call.tableNumber, call.reason || 'assistance');
+      }
+      setWaiterCallsCount((prev) => prev + 1);
+    };
+
+    window.addEventListener('apexbee:new_order', handleOrderEvent);
+    window.addEventListener('apexbee:waiter_call', handleWaiterCallEvent);
+    return () => {
+      window.removeEventListener('apexbee:new_order', handleOrderEvent);
+      window.removeEventListener('apexbee:waiter_call', handleWaiterCallEvent);
+    };
+  }, [soundMuted]);
 
   const handleToggleAccepting = async () => {
     if (!restaurant) return;
@@ -137,36 +187,54 @@ export const FoodPartnerLayout: React.FC = () => {
 
   const navGroups = [
     {
-      title: 'OPERATIONS',
+      title: 'OPERATIONS & DINE-IN',
       items: [
         { label: 'Dashboard', path: '/dashboard', icon: LayoutDashboard, perm: '*' },
-        { label: 'Live Orders', path: '/orders/live', icon: ShoppingBag, badge: liveCount, perm: 'orders' },
-        { label: 'All Orders', path: '/orders', icon: Clock, perm: 'orders' },
+        { label: 'Live Kitchen Orders', path: '/orders/live', icon: ShoppingBag, badge: liveCount, perm: 'orders' },
+        { label: 'Online Website Orders', path: '/orders/live?channel=online', icon: Globe, perm: 'orders' },
+        { label: 'Offline / QR Orders', path: '/orders/live?channel=offline', icon: QrCode, perm: 'orders' },
+        { label: 'POS Terminal', path: '/pos', icon: Calculator, perm: '*' },
+        { label: 'Tables', path: '/tables', icon: LayoutGrid, perm: '*' },
+        { label: 'QR & Digital Menus', path: '/qr-codes', icon: QrCode, perm: '*' },
+        { label: 'Waiter Requests', path: '/waiter-requests', icon: BellRing, badge: waiterCallsCount > 0 ? waiterCallsCount : undefined, perm: '*' },
+        { label: 'Reservations', path: '/reservations', icon: CalendarCheck, perm: '*' },
         { label: 'Fast Availability', path: '/availability', icon: CheckCircle2, perm: 'availability' },
       ],
     },
     {
-      title: 'MENU MANAGEMENT',
+      title: 'MENU & INVENTORY',
       items: [
         { label: 'Menu Items', path: '/menu/items', icon: BookOpen, perm: 'menu' },
         { label: 'Categories', path: '/menu/categories', icon: Layers, perm: 'menu' },
         { label: 'Variants & Add-ons', path: '/menu/addons', icon: Tag, perm: 'menu' },
+        { label: 'Inventory & My Suppliers', path: '/inventory-suppliers', icon: Boxes, perm: '*' },
       ],
     },
     {
-      title: 'RESTAURANT & MARKETING',
+      title: 'GUESTS & RIDERS',
+      items: [
+        { label: 'Customers', path: '/customers', icon: Users, perm: '*' },
+        { label: 'Delivery Executive', path: '/delivery-executives', icon: Bike, perm: '*' },
+      ],
+    },
+    {
+      title: 'FINANCE & REGISTER',
+      items: [
+        { label: 'Cash Register', path: '/cash-register', icon: Coins, perm: '*' },
+        { label: 'Expenses', path: '/expenses', icon: Receipt, perm: '*' },
+        { label: 'Payments', path: '/payments', icon: CreditCard, perm: '*' },
+        { label: 'Finance & Earnings', path: '/finance', icon: DollarSign, perm: 'finance' },
+        { label: 'Reports', path: '/reports', icon: FileSpreadsheet, perm: '*' },
+      ],
+    },
+    {
+      title: 'RESTAURANT & MANAGEMENT',
       items: [
         { label: 'Profile & Details', path: '/restaurant/profile', icon: Building2, perm: 'profile' },
         { label: 'Dining & Bookings', path: '/dining', icon: UtensilsCrossed, perm: 'orders' },
         { label: 'Operating Hours', path: '/restaurant/hours', icon: Clock, perm: 'profile' },
         { label: 'Offers & Discounts', path: '/offers', icon: Tag, perm: 'offers' },
         { label: 'Customer Reviews', path: '/reviews', icon: Star, perm: 'reviews' },
-      ],
-    },
-    {
-      title: 'COMMERCIAL & MANAGEMENT',
-      items: [
-        { label: 'Finance & Earnings', path: '/finance', icon: DollarSign, perm: 'finance' },
         { label: 'Analytics', path: '/analytics', icon: BarChart3, perm: 'reports' },
         { label: 'Staff Roles', path: '/staff', icon: Users, perm: 'staff' },
         { label: 'Subscription', path: '/subscription', icon: Settings, perm: '*' },
@@ -247,7 +315,10 @@ export const FoodPartnerLayout: React.FC = () => {
                 <div className="px-3 text-[10px] font-bold text-slate-400 tracking-wider uppercase mb-2">{group.title}</div>
                 <div className="space-y-1">
                   {filteredItems.map((item) => {
-                    const isActive = location.pathname === item.path;
+                    const currentFullPath = location.pathname + location.search;
+                    const isActive = item.path.includes('?')
+                      ? currentFullPath === item.path
+                      : location.pathname === item.path && !location.search;
                     const Icon = item.icon;
 
                     return (

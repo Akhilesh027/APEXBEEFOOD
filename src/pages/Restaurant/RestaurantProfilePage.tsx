@@ -89,6 +89,15 @@ export const RestaurantProfilePage: React.FC = () => {
     packagingCharge: 15,
   });
 
+  const normalizeBusinessType = (bt?: string) => {
+    if (!bt) return 'RESTAURANT';
+    const u = bt.toUpperCase();
+    if (u.includes('CAFE') || u.includes('BAKER')) return 'CAFE_BAKERY';
+    if (u.includes('SWEET') || u.includes('DESSERT')) return 'SWEETS_DESSERTS';
+    if (u.includes('STREET')) return 'STREET_FOOD';
+    return 'RESTAURANT';
+  };
+
   const loadProfile = async () => {
     setLoading(true);
     try {
@@ -100,11 +109,11 @@ export const RestaurantProfilePage: React.FC = () => {
           restaurantName: p.restaurantName || '',
           legalBusinessName: p.legalBusinessName || '',
           tagline: p.tagline || 'Authentic Flavors & Fresh Cooking',
-          businessType: p.businessType || 'RESTAURANT',
+          businessType: normalizeBusinessType(p.businessType),
           foodPreference: p.foodPreference || 'BOTH',
           description: p.description || '',
           logo: p.logo || '',
-          bannerImage: p.bannerImage || '',
+          bannerImage: p.bannerImage || p.coverImage || '',
 
           fssaiNumber: p.fssaiNumber || '',
           gstNumber: p.gstNumber || '',
@@ -147,10 +156,13 @@ export const RestaurantProfilePage: React.FC = () => {
       .filter(Boolean);
 
     try {
-      const res = await foodService.updateProfile({
+      const payload: any = {
         ...formData,
         cuisines: cuisinesArray,
-      });
+      };
+      delete payload.cuisinesText;
+
+      const res = await foodService.updateProfile(payload);
 
       if (res.data?.profile) {
         setRestaurantData(res.data.profile);
@@ -240,9 +252,9 @@ export const RestaurantProfilePage: React.FC = () => {
                     className="w-full px-4 py-2.5 bg-slate-900 border border-slate-800 rounded-xl text-xs text-slate-100 focus:outline-none focus:border-amber-500"
                   >
                     <option value="RESTAURANT">Restaurant / Fine Dining</option>
-                    <option value="CAFE">Café, Bakery & Beverages</option>
+                    <option value="CAFE_BAKERY">Café, Bakery & Beverages</option>
                     <option value="STREET_FOOD">Street Food & Fast Food</option>
-                    <option value="SWEETS">Sweets & Desserts Shop</option>
+                    <option value="SWEETS_DESSERTS">Sweets & Desserts Shop</option>
                   </select>
                 </div>
 

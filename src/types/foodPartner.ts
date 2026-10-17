@@ -220,6 +220,9 @@ export interface IFoodOrder {
   paymentStatus: 'Pending' | 'Paid' | 'Failed' | 'Refunded';
   orderStatus: 'placed' | 'Placed' | 'accepted' | 'preparing' | 'ready_for_pickup' | 'picked_up' | 'out_for_delivery' | 'delivered' | 'cancelled' | string;
   deliveryType?: string;
+  orderType?: string;
+  orderChannel?: 'ONLINE_WEBSITE' | 'OFFLINE_QR';
+  tableNumber?: string;
   customerNotes?: string;
   createdAt: string;
   deliveryAgentId?: any;

@@ -1,38 +1,35 @@
 import React, { useState } from 'react';
 import { Star, MessageSquare, ThumbsUp, ShieldCheck, UserCheck, Search, Filter } from 'lucide-react';
+import { useFoodAuthStore } from '../../store/useFoodAuthStore';
+
+interface IReview {
+  id: string;
+  customerName: string;
+  rating: number;
+  date: string;
+  dish: string;
+  comment: string;
+  reply?: string | null;
+}
 
 export const ReviewsManagement: React.FC = () => {
+  const { restaurant } = useFoodAuthStore();
   const [filterRating, setFilterRating] = useState<number | 'ALL'>('ALL');
 
-  const reviews = [
-    {
-      id: 'rev-1',
-      customerName: 'Rahul Verma',
-      rating: 5,
-      date: '2 hours ago',
-      dish: 'Chicken Dum Biryani',
-      comment: 'Absolutely authentic Hyderabadi flavor! Aromatic rice and tender chicken pieces. Delivered piping hot.',
-      reply: 'Thank you Rahul! We use 100% pure ghee and authentic spices in our Biryani.',
-    },
-    {
-      id: 'rev-2',
-      customerName: 'Priya Sharma',
-      rating: 4,
-      date: 'Yesterday',
-      dish: 'Paneer Butter Masala + Butter Naan',
-      comment: 'Very rich gravy and soft naan. Packaging was clean and spill-proof.',
-      reply: null,
-    },
-    {
-      id: 'rev-3',
-      customerName: 'Karthik Rao',
-      rating: 5,
-      date: '2 days ago',
-      dish: 'Apollo Fish Fry',
-      comment: 'Crispy, spicy and delicious starter. Perfectly cooked fish fillet.',
-      reply: 'Thanks Karthik! Apollo Fish is our chef signature starter.',
-    },
-  ];
+  const [reviews, setReviews] = useState<IReview[]>(() => {
+    try {
+      const stored = localStorage.getItem('apexbee_restaurant_reviews');
+      if (stored) return JSON.parse(stored);
+    } catch (e) {}
+    return [];
+  });
+
+  const ratingAvg = typeof restaurant?.rating === 'object'
+    ? restaurant?.rating?.average || 4.8
+    : (Number(restaurant?.rating) || 4.8);
+  const ratingCount = typeof restaurant?.rating === 'object'
+    ? restaurant?.rating?.count || 0
+    : 0;
 
   const filteredReviews = reviews.filter((r) =>
     filterRating === 'ALL' ? true : r.rating === filterRating
@@ -55,16 +52,19 @@ export const ReviewsManagement: React.FC = () => {
         {/* OVERALL RATING CARD */}
         <div className="glass-panel px-5 py-3 rounded-2xl border border-slate-800 flex items-center space-x-4 self-start md:self-auto">
           <div className="text-center">
-            <div className="text-2xl font-extrabold text-amber-400 font-mono">4.8</div>
+            <div className="text-2xl font-extrabold text-amber-400 font-mono">{ratingAvg}</div>
             <div className="flex items-center text-amber-400">
               {[...Array(5)].map((_, i) => (
-                <Star key={i} className="w-3 h-3 fill-amber-400" />
+                <Star
+                  key={i}
+                  className={`w-3 h-3 ${i < Math.round(Number(ratingAvg)) ? 'fill-amber-400' : 'text-slate-600'}`}
+                />
               ))}
             </div>
           </div>
           <div className="border-l border-slate-800 pl-4 text-xs text-slate-400">
-            <div className="font-bold text-slate-200">128 Verified Ratings</div>
-            <div className="text-[11px] text-emerald-400">96% Positive Ratings</div>
+            <div className="font-bold text-slate-200">{ratingCount > 0 ? `${ratingCount} Verified Ratings` : 'Verified Dining Partner'}</div>
+            <div className="text-[11px] text-emerald-400">100% Quality Assurance</div>
           </div>
         </div>
       </div>
@@ -95,7 +95,16 @@ export const ReviewsManagement: React.FC = () => {
 
       {/* REVIEWS LIST */}
       <div className="space-y-4">
-        {filteredReviews.map((rev) => (
+        {filteredReviews.length === 0 ? (
+          <div className="p-12 text-center rounded-3xl bg-slate-900/40 border border-slate-800 text-slate-400 space-y-3">
+            <Star className="w-10 h-10 text-slate-600 mx-auto" />
+            <div className="text-base font-bold text-slate-200">No Customer Reviews Yet</div>
+            <p className="text-xs text-slate-500 max-w-md mx-auto">
+              Verified diner feedback and ratings submitted after dining or food delivery will automatically appear here.
+            </p>
+          </div>
+        ) : (
+          filteredReviews.map((rev) => (
           <div key={rev.id} className="glass-panel p-6 rounded-3xl border border-slate-800 space-y-4">
             <div className="flex items-start justify-between">
               <div className="flex items-center space-x-3">
@@ -139,7 +148,7 @@ export const ReviewsManagement: React.FC = () => {
               </button>
             )}
           </div>
-        ))}
+        )))}
       </div>
     </div>
   );

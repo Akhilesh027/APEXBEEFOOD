@@ -178,11 +178,10 @@ export const FinanceDashboard: React.FC = () => {
           <button
             key={key}
             onClick={() => setActiveTab(key as any)}
-            className={`px-4 py-2 rounded-lg text-xs font-bold flex items-center space-x-2 transition-all ${
-              activeTab === key
+            className={`px-4 py-2 rounded-lg text-xs font-bold flex items-center space-x-2 transition-all ${activeTab === key
                 ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
                 : 'text-slate-400 hover:text-slate-200'
-            }`}
+              }`}
           >
             <Icon className="w-3.5 h-3.5" />
             <span>{label}</span>
@@ -231,11 +230,10 @@ export const FinanceDashboard: React.FC = () => {
                     <td className="p-4 font-mono font-bold text-emerald-400">₹{item.amount}</td>
                     <td className="p-4 text-center">
                       <span
-                        className={`px-3 py-1 rounded-full text-[10px] font-extrabold uppercase ${
-                          item.status === 'released'
+                        className={`px-3 py-1 rounded-full text-[10px] font-extrabold uppercase ${item.status === 'released'
                             ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
                             : 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
-                        }`}
+                          }`}
                       >
                         {item.status || 'RELEASED'}
                       </span>
@@ -261,9 +259,9 @@ export const FinanceDashboard: React.FC = () => {
               <tr>
                 <th className="p-4">Menu Item</th>
                 <th className="p-4">Type</th>
-                <th className="p-4 text-right">Base Price</th>
+                <th className="p-4 text-right">Selling Price</th>
                 <th className="p-4 text-right">Commission %</th>
-                <th className="p-4 text-right">Platform Share</th>
+                <th className="p-4 text-right">Platform Fee</th>
                 <th className="p-4 text-right">Your Payout</th>
                 <th className="p-4 text-center">Status</th>
               </tr>
@@ -276,58 +274,72 @@ export const FinanceDashboard: React.FC = () => {
                   </td>
                 </tr>
               ) : (
-                itemBreakdown.map((item: any) => (
-                  <tr key={item._id} className="hover:bg-slate-900/40 transition">
-                    <td className="p-4">
-                      <div className="font-bold text-slate-200">{item.name}</div>
-                    </td>
-                    <td className="p-4">
-                      <span className={`px-2 py-0.5 rounded-full text-[10px] font-extrabold uppercase ${
-                        item.foodType === 'VEG'
-                          ? 'bg-green-500/20 text-green-400 border border-green-500/30'
-                          : item.foodType === 'NON_VEG'
-                          ? 'bg-red-500/20 text-red-400 border border-red-500/30'
-                          : 'bg-amber-500/20 text-amber-400 border border-amber-500/30'
-                      }`}>
-                        {item.foodType}
-                      </span>
-                    </td>
-                    <td className="p-4 text-right font-mono font-bold text-slate-200">₹{item.basePrice}</td>
-                    <td className="p-4 text-right">
-                      <span className="px-2 py-1 rounded-lg bg-amber-500/10 text-amber-400 font-bold text-[11px]">
-                        {item.platformCommissionPercent}%
-                      </span>
-                    </td>
-                    <td className="p-4 text-right font-mono font-bold text-amber-400">
-                      <div className="flex items-center justify-end space-x-1">
-                        <ArrowDownRight className="w-3 h-3" />
-                        <span>₹{item.platformShareAmount}</span>
-                      </div>
-                    </td>
-                    <td className="p-4 text-right font-mono font-bold text-emerald-400">
-                      <div className="flex items-center justify-end space-x-1">
-                        <ArrowUpRight className="w-3 h-3" />
-                        <span>₹{item.vendorPayoutAmount}</span>
-                      </div>
-                    </td>
-                    <td className="p-4 text-center">
-                      <span className={`px-2.5 py-1 rounded-full text-[10px] font-extrabold uppercase ${
-                        item.approvalStatus === 'PUBLISHED_LIVE'
-                          ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
-                          : item.approvalStatus === 'PENDING_RESTAURANT_ACCEPTANCE'
-                          ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30'
-                          : item.approvalStatus === 'PENDING_ADMIN_REVIEW'
-                          ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
-                          : 'bg-red-500/20 text-red-400 border border-red-500/30'
-                      }`}>
-                        {item.approvalStatus === 'PUBLISHED_LIVE' ? 'LIVE'
-                          : item.approvalStatus === 'PENDING_RESTAURANT_ACCEPTANCE' ? 'AWAITING YOUR CONSENT'
-                          : item.approvalStatus === 'PENDING_ADMIN_REVIEW' ? 'UNDER REVIEW'
-                          : 'REJECTED'}
-                      </span>
-                    </td>
-                  </tr>
-                ))
+                itemBreakdown.map((item: any) => {
+                  const sellingPrice = (item.offerPrice && item.offerPrice > 0) ? item.offerPrice : (item.sellingPrice || item.basePrice);
+                  const commPct = item.platformCommissionPercent || 12;
+                  const platformFee = item.platformShareAmount !== undefined && item.platformShareAmount !== null
+                    ? item.platformShareAmount
+                    : Math.round(((sellingPrice * commPct) / 100) * 100) / 100;
+                  const payout = item.vendorPayoutAmount !== undefined && item.vendorPayoutAmount !== null
+                    ? item.vendorPayoutAmount
+                    : Math.max(0, Math.round((sellingPrice - platformFee) * 100) / 100);
+
+                  return (
+                    <tr key={item._id} className="hover:bg-slate-900/40 transition">
+                      <td className="p-4">
+                        <div className="font-bold text-slate-200">{item.name}</div>
+                      </td>
+                      <td className="p-4">
+                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-extrabold uppercase ${item.foodType === 'VEG'
+                            ? 'bg-green-500/20 text-green-400 border border-green-500/30'
+                            : item.foodType === 'NON_VEG'
+                              ? 'bg-red-500/20 text-red-400 border border-red-500/30'
+                              : 'bg-amber-500/20 text-amber-400 border border-amber-500/30'
+                          }`}>
+                          {item.foodType}
+                        </span>
+                      </td>
+                      <td className="p-4 text-right font-mono font-bold text-slate-200">
+                        ₹{sellingPrice}
+                        {Boolean(item.offerPrice && item.offerPrice > 0 && item.offerPrice < item.basePrice) && (
+                          <span className="text-[10px] text-slate-500 line-through ml-1.5 font-normal">MRP ₹{item.basePrice}</span>
+                        )}
+                      </td>
+                      <td className="p-4 text-right">
+                        <span className="px-2 py-1 rounded-lg bg-amber-500/10 text-amber-400 font-bold text-[11px]">
+                          {commPct}%
+                        </span>
+                      </td>
+                      <td className="p-4 text-right font-mono font-bold text-amber-400">
+                        <div className="flex items-center justify-end space-x-1">
+                          <ArrowDownRight className="w-3 h-3" />
+                          <span>₹{platformFee}</span>
+                        </div>
+                      </td>
+                      <td className="p-4 text-right font-mono font-bold text-emerald-400">
+                        <div className="flex items-center justify-end space-x-1">
+                          <ArrowUpRight className="w-3 h-3" />
+                          <span>₹{payout}</span>
+                        </div>
+                      </td>
+                      <td className="p-4 text-center">
+                        <span className={`px-2.5 py-1 rounded-full text-[10px] font-extrabold uppercase ${item.approvalStatus === 'PUBLISHED_LIVE'
+                            ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
+                            : item.approvalStatus === 'PENDING_RESTAURANT_ACCEPTANCE'
+                              ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30'
+                              : item.approvalStatus === 'PENDING_ADMIN_REVIEW'
+                                ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
+                                : 'bg-red-500/20 text-red-400 border border-red-500/30'
+                          }`}>
+                          {item.approvalStatus === 'PUBLISHED_LIVE' ? 'LIVE'
+                            : item.approvalStatus === 'PENDING_RESTAURANT_ACCEPTANCE' ? 'AWAITING YOUR CONSENT'
+                              : item.approvalStatus === 'PENDING_ADMIN_REVIEW' ? 'UNDER REVIEW'
+                                : 'REJECTED'}
+                        </span>
+                      </td>
+                    </tr>
+                  );
+                })
               )}
             </tbody>
           </table>
@@ -449,3 +461,4 @@ export const FinanceDashboard: React.FC = () => {
     </div>
   );
 };
+
