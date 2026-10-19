@@ -15,6 +15,10 @@ import {
   RefreshCw,
   Globe,
   QrCode,
+  Receipt,
+  Copy,
+  Check,
+  ExternalLink,
 } from 'lucide-react';
 import { foodService } from '../../services/foodService';
 import { useFoodAuthStore } from '../../store/useFoodAuthStore';
@@ -31,6 +35,8 @@ export const FoodDashboard: React.FC = () => {
   const [earningsData, setEarningsData] = useState<any>(null);
   const [acceptingPrepTime, setAcceptingPrepTime] = useState<number>(20);
   const [acceptingOrderId, setAcceptingOrderId] = useState<string | null>(null);
+  const [pendingInvoices, setPendingInvoices] = useState<any[]>([]);
+  const [copiedInvoiceId, setCopiedInvoiceId] = useState<string | null>(null);
 
   const handleToggleAccepting = async () => {
     if (!restaurant) return;
@@ -55,10 +61,11 @@ export const FoodDashboard: React.FC = () => {
   const fetchDashboardData = async () => {
     setLoading(true);
     try {
-      const [feedResult, analyticsResult, earningsResult] = await Promise.allSettled([
+      const [feedResult, analyticsResult, earningsResult, invoicesResult] = await Promise.allSettled([
         foodService.getLiveOrdersFeed(),
         foodService.getAnalytics(),
         foodService.getEarnings(),
+        foodService.getMyInvoices(),
       ]);
 
       if (feedResult.status === 'fulfilled' && feedResult.value?.data) {
@@ -72,6 +79,11 @@ export const FoodDashboard: React.FC = () => {
 
       if (earningsResult.status === 'fulfilled' && earningsResult.value?.data) {
         setEarningsData(earningsResult.value.data);
+      }
+
+      if (invoicesResult.status === 'fulfilled' && invoicesResult.value?.data?.data) {
+        const invs = Array.isArray(invoicesResult.value.data.data) ? invoicesResult.value.data.data : [];
+        setPendingInvoices(invs.filter((inv: any) => inv.status === 'pending'));
       }
     } catch (err) {
       // Gracefully handle network glitches during background polling
@@ -165,6 +177,74 @@ export const FoodDashboard: React.FC = () => {
           </Link>
         </div>
       </div>
+
+      {/* PENDING ADMIN PAYMENT LINK ALERT BANNER */}
+      {pendingInvoices.length > 0 && (
+        <div className="space-y-3">
+          {pendingInvoices.map((inv: any) => {
+            const payUrl = inv.shortPaymentUrl || `https://apexbee.in/pay/${inv.paymentLinkToken}`;
+            const isCopied = copiedInvoiceId === inv._id;
+            return (
+              <div
+                key={inv._id}
+                className="p-5 rounded-2xl bg-gradient-to-r from-amber-500/20 via-slate-900 to-slate-900 border-2 border-amber-500/50 shadow-xl shadow-amber-500/10 flex flex-col md:flex-row md:items-center justify-between gap-4 animate-in fade-in"
+              >
+                <div className="flex items-start space-x-3.5">
+                  <div className="p-2.5 rounded-xl bg-amber-500 text-slate-950 font-black shrink-0 shadow-md">
+                    <Receipt className="w-6 h-6" />
+                  </div>
+                  <div>
+                    <div className="flex items-center space-x-2">
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-amber-500/20 text-amber-400 border border-amber-500/40">
+                        ADMIN PAYMENT LINK ISSUED
+                      </span>
+                      <span className="text-xs text-slate-400 font-mono">#{inv.invoiceNumber}</span>
+                    </div>
+                    <h3 className="text-base font-extrabold text-slate-100 font-heading mt-1">
+                      {inv.title} - <span className="text-amber-400 font-mono">₹{inv.totalAmount?.toLocaleString('en-IN')}</span>
+                    </h3>
+                    <p className="text-xs text-slate-300 mt-0.5">
+                      {inv.notes ? `Note: ${inv.notes}` : 'Please complete the payment for your restaurant account / license.'}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-2 shrink-0">
+                  <button
+                    onClick={() => {
+                      navigator.clipboard.writeText(payUrl);
+                      setCopiedInvoiceId(inv._id);
+                      setTimeout(() => setCopiedInvoiceId(null), 2500);
+                    }}
+                    className="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold transition flex items-center space-x-1"
+                  >
+                    {isCopied ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                    <span>{isCopied ? 'Copied' : 'Copy Link'}</span>
+                  </button>
+
+                  <a
+                    href={payUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold transition flex items-center space-x-1"
+                  >
+                    <ExternalLink className="w-3.5 h-3.5" />
+                    <span>Open Link</span>
+                  </a>
+
+                  <Link
+                    to="/subscription"
+                    className="px-4 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-black transition shadow-md shadow-amber-500/20 flex items-center space-x-1.5"
+                  >
+                    <span>Pay Online</span>
+                    <ChevronRight className="w-4 h-4" />
+                  </Link>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
 
       {/* KPI METRIC CARDS */}
       <div className="grid grid-cols-2 lg:grid-cols-6 gap-4">

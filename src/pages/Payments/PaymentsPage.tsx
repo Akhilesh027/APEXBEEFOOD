@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import {
   CreditCard,
   Banknote,
@@ -162,6 +163,26 @@ export const PaymentsPage: React.FC = () => {
           <Download className="w-4 h-4 text-amber-400" />
           <span>Export Transactions</span>
         </button>
+      </div>
+
+      {/* ADMIN INVOICES & PAYMENT LINKS BANNER */}
+      <div className="glass-panel p-4 rounded-2xl border border-amber-500/30 bg-gradient-to-r from-amber-500/10 via-slate-900 to-slate-900 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div className="flex items-center space-x-3">
+          <div className="p-2.5 rounded-xl bg-amber-500 text-slate-950 font-bold shrink-0">
+            <Receipt className="w-5 h-5" />
+          </div>
+          <div>
+            <h3 className="text-sm font-bold text-slate-100">Looking for Admin Fee Invoices & Payment Links?</h3>
+            <p className="text-xs text-slate-400">View license fees, store onboarding links, and Razorpay receipts issued by ApexBee Admin.</p>
+          </div>
+        </div>
+        <Link
+          to="/subscription"
+          className="px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-black transition shrink-0 flex items-center justify-center space-x-1.5 shadow-md shadow-amber-500/20"
+        >
+          <span>View Admin Invoices</span>
+          <ArrowUpRight className="w-4 h-4" />
+        </Link>
       </div>
 
       {/* METRIC CARDS */}

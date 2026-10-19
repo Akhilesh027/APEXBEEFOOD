@@ -89,4 +89,18 @@ export const foodService = {
     });
     return res.data;
   },
+
+  // --- ADMIN FEE INVOICES & PAYMENT LINKS ---
+  getMyInvoices: () => api.get('/fee-invoices'),
+  createInvoiceRazorpayOrder: (data: { invoiceId?: string; token?: string }) =>
+    api.post('/fee-invoices/create-razorpay-order', data),
+  payInvoice: (data: {
+    invoiceId?: string;
+    token?: string;
+    paymentMethod?: string;
+    paymentGatewayOrderId?: string;
+    paymentId?: string;
+    signature?: string;
+  }) => api.post('/fee-invoices/pay', data),
 };
+
