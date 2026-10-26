@@ -637,7 +637,7 @@ export const MenuManagement: React.FC = () => {
                           </span>
                         )}
                         {item.isPreOrder && (
-                          <span className="px-2 py-0.5 bg-purple-500/20 text-purple-300 font-bold rounded-full border border-purple-500/30 flex items-center space-x-1">
+                          <span className="px-2 py-0.5 bg-amber-500/20 text-amber-300 font-bold rounded-full border border-amber-500/40 flex items-center space-x-1 shadow-2xs">
                             <span>🎂 Pre-Order ({item.preOrderLeadTimeDays || 2}d Notice)</span>
                           </span>
                         )}
@@ -933,13 +933,13 @@ export const MenuManagement: React.FC = () => {
                 </label>
               </div>
 
-              {/* 🎂 PRE-ORDER & ADVANCE SCHEDULING (FOR CUSTOM CAKES & FRESH BAKES) */}
-              <div className="p-4 rounded-2xl bg-slate-900/90 border border-purple-500/30 space-y-3">
+              {/* 🎂 PRE-ORDER & ADVANCE SCHEDULING (ApexBee Amber & Navy Brand) */}
+              <div className="p-4 rounded-2xl bg-slate-900/90 border border-amber-500/40 space-y-3">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center space-x-2">
                     <span className="text-lg">🎂</span>
                     <div>
-                      <h4 className="text-xs font-bold text-slate-100">
+                      <h4 className="text-xs font-bold text-amber-400">
                         Pre-Order &amp; Advance Notice
                       </h4>
                       <p className="text-[10px] text-slate-400">
@@ -954,7 +954,7 @@ export const MenuManagement: React.FC = () => {
                       onChange={(e) => setNewItemData({ ...newItemData, isPreOrder: e.target.checked })}
                       className="sr-only peer"
                     />
-                    <div className="w-9 h-5 bg-slate-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-purple-600"></div>
+                    <div className="w-9 h-5 bg-slate-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-amber-500"></div>
                   </label>
                 </div>
 
@@ -966,7 +966,7 @@ export const MenuManagement: React.FC = () => {
                         <select
                           value={newItemData.preOrderType}
                           onChange={(e: any) => setNewItemData({ ...newItemData, preOrderType: e.target.value })}
-                          className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-xs text-slate-100 focus:outline-none focus:border-purple-500"
+                          className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-xs text-slate-100 focus:outline-none focus:border-amber-500"
                         >
                           <option value="ADVANCE_NOTICE">🎂 Advance Notice (e.g. 2 Days)</option>
                           <option value="DAILY_CUTOFF">⚡ Daily Fresh Cutoff (Next-day)</option>
@@ -979,7 +979,7 @@ export const MenuManagement: React.FC = () => {
                         <select
                           value={newItemData.preOrderLeadTimeDays}
                           onChange={(e) => setNewItemData({ ...newItemData, preOrderLeadTimeDays: Number(e.target.value) })}
-                          className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-xs text-slate-100 focus:outline-none focus:border-purple-500"
+                          className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-xs text-slate-100 focus:outline-none focus:border-amber-500"
                         >
                           <option value={1}>1 Day Notice</option>
                           <option value={2}>2 Days Notice (Recommended for Cakes)</option>
@@ -998,7 +998,7 @@ export const MenuManagement: React.FC = () => {
                           type="time"
                           value={newItemData.preOrderDailyCutoffTime}
                           onChange={(e) => setNewItemData({ ...newItemData, preOrderDailyCutoffTime: e.target.value })}
-                          className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-xs text-slate-100 focus:outline-none focus:border-purple-500"
+                          className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-xs text-slate-100 focus:outline-none focus:border-amber-500"
                         />
                         <p className="text-[9.5px] text-slate-500 mt-1">Orders placed after this time start notice from next day.</p>
                       </div>
@@ -1010,7 +1010,7 @@ export const MenuManagement: React.FC = () => {
                           value={newItemData.preOrderCustomMessageLabel}
                           onChange={(e) => setNewItemData({ ...newItemData, preOrderCustomMessageLabel: e.target.value })}
                           placeholder="Auto-detected based on dish (e.g. Message on Cake, Cooking Instructions)"
-                          className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-xs text-slate-100 focus:outline-none focus:border-purple-500"
+                          className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-xs text-slate-100 focus:outline-none focus:border-amber-500"
                         />
                       </div>
                     </div>
@@ -1021,7 +1021,7 @@ export const MenuManagement: React.FC = () => {
                           type="checkbox"
                           checked={newItemData.preOrderAllowCustomMessage}
                           onChange={(e) => setNewItemData({ ...newItemData, preOrderAllowCustomMessage: e.target.checked })}
-                          className="rounded text-purple-600 bg-slate-950 border-slate-800 focus:ring-0"
+                          className="rounded text-amber-500 bg-slate-950 border-slate-800 focus:ring-0"
                         />
                         <span>Allow Customer Inscription / Special Instructions</span>
                       </label>
@@ -1031,7 +1031,7 @@ export const MenuManagement: React.FC = () => {
                           type="checkbox"
                           checked={newItemData.preOrderAllowTimeSlot}
                           onChange={(e) => setNewItemData({ ...newItemData, preOrderAllowTimeSlot: e.target.checked })}
-                          className="rounded text-purple-600 bg-slate-950 border-slate-800 focus:ring-0"
+                          className="rounded text-amber-500 bg-slate-950 border-slate-800 focus:ring-0"
                         />
                         <span>Allow Slot Preference (Morning/Afternoon/Evening)</span>
                       </label>
