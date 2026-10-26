@@ -402,6 +402,13 @@ export const MenuManagement: React.FC = () => {
                   isBestseller: false,
                   isRecommended: false,
                   imageUrl: '',
+                  isPreOrder: false,
+                  preOrderType: 'ADVANCE_NOTICE',
+                  preOrderLeadTimeDays: 2,
+                  preOrderDailyCutoffTime: '18:00',
+                  preOrderAllowTimeSlot: true,
+                  preOrderAllowCustomMessage: true,
+                  preOrderCustomMessageLabel: 'Message on Cake / Custom Inscription',
                 });
                 setShowItemModal(true);
               }}
