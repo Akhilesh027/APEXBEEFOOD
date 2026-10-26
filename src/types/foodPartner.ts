@@ -195,6 +195,17 @@ export interface IFoodMenuItem {
   distributedFrom?: string;
   vendorPayoutAmount?: number;
   approvalStatus?: 'PENDING_ADMIN_REVIEW' | 'PENDING_RESTAURANT_ACCEPTANCE' | 'PUBLISHED_LIVE' | string;
+  isPreOrder?: boolean;
+  preOrderType?: 'ADVANCE_NOTICE' | 'DAILY_CUTOFF' | 'RELEASE_DATE' | 'SPECIFIC_DAYS';
+  preOrderLeadTimeDays?: number;
+  preOrderLeadTimeHours?: number;
+  preOrderDailyCutoffTime?: string;
+  preOrderAllowTimeSlot?: boolean;
+  preOrderAllowCustomMessage?: boolean;
+  preOrderCustomMessageLabel?: string;
+  preOrderReleaseDate?: string | Date | null;
+  preOrderMessage?: string;
+  preOrderLimit?: number;
 }
 
 export interface IFoodOrderSnapshotItem {

@@ -82,6 +82,13 @@ export const MenuManagement: React.FC = () => {
     isBestseller: false,
     isRecommended: false,
     imageUrl: '',
+    isPreOrder: false,
+    preOrderType: 'ADVANCE_NOTICE' as 'ADVANCE_NOTICE' | 'DAILY_CUTOFF' | 'RELEASE_DATE',
+    preOrderLeadTimeDays: 2,
+    preOrderDailyCutoffTime: '18:00',
+    preOrderAllowTimeSlot: true,
+    preOrderAllowCustomMessage: true,
+    preOrderCustomMessageLabel: 'Message on Cake / Custom Inscription',
   });
 
   // Category Form
@@ -239,6 +246,13 @@ export const MenuManagement: React.FC = () => {
         isBestseller: false,
         isRecommended: false,
         imageUrl: '',
+        isPreOrder: false,
+        preOrderType: 'ADVANCE_NOTICE',
+        preOrderLeadTimeDays: 2,
+        preOrderDailyCutoffTime: '18:00',
+        preOrderAllowTimeSlot: true,
+        preOrderAllowCustomMessage: true,
+        preOrderCustomMessageLabel: 'Message on Cake / Custom Inscription',
       });
       loadMenuData();
     } catch (err: any) {
@@ -259,6 +273,13 @@ export const MenuManagement: React.FC = () => {
       isBestseller: item.isBestseller || false,
       isRecommended: item.isRecommended || false,
       imageUrl: item.imageUrl || item.image || '',
+      isPreOrder: Boolean(item.isPreOrder),
+      preOrderType: (item.preOrderType || 'ADVANCE_NOTICE') as any,
+      preOrderLeadTimeDays: item.preOrderLeadTimeDays ?? 2,
+      preOrderDailyCutoffTime: item.preOrderDailyCutoffTime || '18:00',
+      preOrderAllowTimeSlot: item.preOrderAllowTimeSlot ?? true,
+      preOrderAllowCustomMessage: item.preOrderAllowCustomMessage ?? true,
+      preOrderCustomMessageLabel: item.preOrderCustomMessageLabel || 'Message on Cake / Custom Inscription',
     });
     setShowItemModal(true);
   };
@@ -517,22 +538,21 @@ export const MenuManagement: React.FC = () => {
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {filteredItems.map((item) => {
-                const comm = item.platformCommissionPercent || 12;
                 const sellingPrice = (item.offerPrice && item.offerPrice > 0) ? item.offerPrice : item.basePrice;
-                const platformShare = item.platformShareAmount !== undefined && item.platformShareAmount !== null
-                  ? item.platformShareAmount
-                  : Math.round(((sellingPrice * comm) / 100) * 100) / 100;
-                const isApexBeeComm = item.distributedFrom === 'apexbee_commission' || Boolean(item.vendorCommissionPercent && item.vendorCommissionPercent > 0);
-                const vCommPct = item.vendorCommissionPercent || 0;
-                const vCommAmount = item.vendorCommissionAmount !== undefined && item.vendorCommissionAmount !== null
-                  ? item.vendorCommissionAmount
-                  : Math.round(((sellingPrice * vCommPct) / 100) * 100) / 100;
+                const isApexBeeComm = item.distributedFrom === 'apexbee_commission' && Boolean(item.vendorCommissionPercent && item.vendorCommissionPercent > 0);
+                const vCommPct = isApexBeeComm ? Number(item.vendorCommissionPercent || 0) : 0;
+                const vCommAmount = isApexBeeComm
+                  ? (item.vendorCommissionAmount !== undefined && item.vendorCommissionAmount !== null
+                    ? Number(item.vendorCommissionAmount)
+                    : Math.round(((sellingPrice * vCommPct) / 100) * 100) / 100)
+                  : 0;
                 
-                const vendorPayout = item.vendorPayoutAmount !== undefined && item.vendorPayoutAmount !== null
-                  ? item.vendorPayoutAmount
-                  : isApexBeeComm
-                  ? Math.max(0, Math.round((sellingPrice - vCommAmount) * 100) / 100)
-                  : Math.max(0, Math.round((sellingPrice - platformShare) * 100) / 100);
+                // When pricing is Platform Fee (not ApexBee Commission), the restaurant gets 100% of selling price!
+                const vendorPayout = isApexBeeComm
+                  ? (item.vendorPayoutAmount !== undefined && item.vendorPayoutAmount !== null
+                    ? Number(item.vendorPayoutAmount)
+                    : Math.max(0, Math.round((sellingPrice - vCommAmount) * 100) / 100))
+                  : (item.vendorPayoutAmount && Number(item.vendorPayoutAmount) > 0 ? Number(item.vendorPayoutAmount) : sellingPrice);
                 const isPendingAdmin = item.approvalStatus === 'PENDING_ADMIN_REVIEW';
                 const isPendingRestaurant = item.approvalStatus === 'PENDING_RESTAURANT_ACCEPTANCE';
                 const isLive = item.approvalStatus === 'PUBLISHED_LIVE' || item.status === 'ACTIVE';
@@ -609,6 +629,11 @@ export const MenuManagement: React.FC = () => {
                             <span>Bestseller</span>
                           </span>
                         )}
+                        {item.isPreOrder && (
+                          <span className="px-2 py-0.5 bg-purple-500/20 text-purple-300 font-bold rounded-full border border-purple-500/30 flex items-center space-x-1">
+                            <span>🎂 Pre-Order ({item.preOrderLeadTimeDays || 2}d Notice)</span>
+                          </span>
+                        )}
                         <span className="text-slate-400 flex items-center space-x-1">
                           <Clock className="w-3 h-3 text-slate-500" />
                           <span>{item.preparationTimeMinutes || 20}m</span>
@@ -627,25 +652,25 @@ export const MenuManagement: React.FC = () => {
                         {isPendingRestaurant && (
                           <div className="p-3 bg-slate-950 border border-emerald-500/40 rounded-2xl space-y-2">
                             <div className="text-[11px] font-bold text-slate-200">
-                              {isApexBeeComm ? (
+                              {isApexBeeComm && vCommPct > 0 ? (
                                 <>⚡ Admin Proposed <strong className="text-amber-400">{vCommPct}% ApexBee Commission</strong> (₹{vCommAmount} on Selling Price ₹{sellingPrice}). Your net payout: <strong className="text-emerald-400">₹{vendorPayout}</strong>.</>
                               ) : (
-                                <>⚡ Admin Proposed <strong className="text-amber-400">{comm}% Platform Fee</strong> (₹{platformShare} on Selling Price ₹{sellingPrice}). Your net payout: <strong className="text-emerald-400">₹{vendorPayout}</strong>.</>
+                                <>⚡ Admin Approved Pricing! Selling Price: ₹{sellingPrice}. Your net payout: <strong className="text-emerald-400">₹{vendorPayout}</strong> (100% payout - No commission deducted).</>
                               )}
                             </div>
                             <button
                               onClick={async () => {
                                 try {
                                   await foodService.respondToCommissionOffer(item._id, 'ACCEPT');
-                                  alert('✅ Commission accepted! Dish is now Live on Platform.');
+                                  alert('✅ Pricing accepted! Dish is now Live on Platform.');
                                   loadMenuData();
                                 } catch (err) {
-                                  alert('Failed to accept commission offer');
+                                  alert('Failed to accept pricing offer');
                                 }
                               }}
                               className="w-full py-1.5 bg-emerald-500 hover:bg-emerald-400 text-slate-950 text-xs font-black rounded-xl shadow-md transition cursor-pointer"
                             >
-                              Accept Commission &amp; Publish Live
+                              Accept &amp; Publish Live
                             </button>
                           </div>
                         )}
@@ -657,7 +682,7 @@ export const MenuManagement: React.FC = () => {
                               <span>Live on Platform</span>
                             </div>
                             <span className="font-mono text-[10px] text-slate-400 font-semibold">
-                              {isApexBeeComm ? `${vCommPct}% Comm (₹${vCommAmount}) | ` : `${comm}% Fee (₹${platformShare}) | `}Payout ₹{vendorPayout}
+                              {isApexBeeComm && vCommPct > 0 ? `${vCommPct}% ApexBee Comm (₹${vCommAmount}) | ` : ''}Payout ₹{vendorPayout}
                             </span>
                           </div>
                         )}
@@ -899,6 +924,113 @@ export const MenuManagement: React.FC = () => {
                   />
                   <span>Chef Recommended</span>
                 </label>
+              </div>
+
+              {/* 🎂 PRE-ORDER & ADVANCE SCHEDULING (FOR CUSTOM CAKES & FRESH BAKES) */}
+              <div className="p-4 rounded-2xl bg-slate-900/90 border border-purple-500/30 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-2">
+                    <span className="text-lg">🎂</span>
+                    <div>
+                      <h4 className="text-xs font-bold text-slate-100">
+                        Pre-Order &amp; Advance Notice
+                      </h4>
+                      <p className="text-[10px] text-slate-400">
+                        Enable for custom bakery cakes, catering, or items requiring advance booking.
+                      </p>
+                    </div>
+                  </div>
+                  <label className="relative inline-flex items-center cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={newItemData.isPreOrder}
+                      onChange={(e) => setNewItemData({ ...newItemData, isPreOrder: e.target.checked })}
+                      className="sr-only peer"
+                    />
+                    <div className="w-9 h-5 bg-slate-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-purple-600"></div>
+                  </label>
+                </div>
+
+                {newItemData.isPreOrder && (
+                  <div className="pt-2 border-t border-slate-800 space-y-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-[11px] font-semibold text-slate-300 mb-1">Pre-Order Type</label>
+                        <select
+                          value={newItemData.preOrderType}
+                          onChange={(e: any) => setNewItemData({ ...newItemData, preOrderType: e.target.value })}
+                          className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-xs text-slate-100 focus:outline-none focus:border-purple-500"
+                        >
+                          <option value="ADVANCE_NOTICE">🎂 Advance Notice (e.g. 2 Days)</option>
+                          <option value="DAILY_CUTOFF">⚡ Daily Fresh Cutoff (Next-day)</option>
+                          <option value="RELEASE_DATE">🚀 Launch / Release Date</option>
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="block text-[11px] font-semibold text-slate-300 mb-1">Preparation Notice (Days)</label>
+                        <select
+                          value={newItemData.preOrderLeadTimeDays}
+                          onChange={(e) => setNewItemData({ ...newItemData, preOrderLeadTimeDays: Number(e.target.value) })}
+                          className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-xs text-slate-100 focus:outline-none focus:border-purple-500"
+                        >
+                          <option value={1}>1 Day Notice</option>
+                          <option value={2}>2 Days Notice (Recommended for Cakes)</option>
+                          <option value={3}>3 Days Notice</option>
+                          <option value={4}>4 Days Notice</option>
+                          <option value={5}>5 Days Notice</option>
+                          <option value={7}>7 Days Notice (1 Week)</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-[11px] font-semibold text-slate-300 mb-1">Daily Order Cut-off Time</label>
+                        <input
+                          type="time"
+                          value={newItemData.preOrderDailyCutoffTime}
+                          onChange={(e) => setNewItemData({ ...newItemData, preOrderDailyCutoffTime: e.target.value })}
+                          className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-xs text-slate-100 focus:outline-none focus:border-purple-500"
+                        />
+                        <p className="text-[9.5px] text-slate-500 mt-1">Orders placed after this time start notice from next day.</p>
+                      </div>
+
+                      <div>
+                        <label className="block text-[11px] font-semibold text-slate-300 mb-1">Customer Note Label (Optional Override)</label>
+                        <input
+                          type="text"
+                          value={newItemData.preOrderCustomMessageLabel}
+                          onChange={(e) => setNewItemData({ ...newItemData, preOrderCustomMessageLabel: e.target.value })}
+                          placeholder="Auto-detected based on dish (e.g. Message on Cake, Cooking Instructions)"
+                          className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-xs text-slate-100 focus:outline-none focus:border-purple-500"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-4 pt-1">
+                      <label className="flex items-center space-x-2 text-xs text-slate-300 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={newItemData.preOrderAllowCustomMessage}
+                          onChange={(e) => setNewItemData({ ...newItemData, preOrderAllowCustomMessage: e.target.checked })}
+                          className="rounded text-purple-600 bg-slate-950 border-slate-800 focus:ring-0"
+                        />
+                        <span>Allow Customer Inscription / Special Instructions</span>
+                      </label>
+
+                      <label className="flex items-center space-x-2 text-xs text-slate-300 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={newItemData.preOrderAllowTimeSlot}
+                          onChange={(e) => setNewItemData({ ...newItemData, preOrderAllowTimeSlot: e.target.checked })}
+                          className="rounded text-purple-600 bg-slate-950 border-slate-800 focus:ring-0"
+                        />
+                        <span>Allow Slot Preference (Morning/Afternoon/Evening)</span>
+                      </label>
+                    </div>
+                  </div>
+                )}
               </div>
 
               <div className="flex justify-end space-x-3 pt-2">

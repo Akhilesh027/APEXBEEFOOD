@@ -276,13 +276,18 @@ export const FinanceDashboard: React.FC = () => {
               ) : (
                 itemBreakdown.map((item: any) => {
                   const sellingPrice = (item.offerPrice && item.offerPrice > 0) ? item.offerPrice : (item.sellingPrice || item.basePrice);
-                  const commPct = item.platformCommissionPercent || 12;
-                  const platformFee = item.platformShareAmount !== undefined && item.platformShareAmount !== null
-                    ? item.platformShareAmount
-                    : Math.round(((sellingPrice * commPct) / 100) * 100) / 100;
-                  const payout = item.vendorPayoutAmount !== undefined && item.vendorPayoutAmount !== null
-                    ? item.vendorPayoutAmount
-                    : Math.max(0, Math.round((sellingPrice - platformFee) * 100) / 100);
+                  const isApexBeeComm = item.distributedFrom === 'apexbee_commission' && Boolean(item.vendorCommissionPercent && item.vendorCommissionPercent > 0);
+                  const commPct = isApexBeeComm ? Number(item.vendorCommissionPercent || 0) : 0;
+                  const commDeduction = isApexBeeComm
+                    ? (item.vendorCommissionAmount !== undefined && item.vendorCommissionAmount !== null
+                      ? Number(item.vendorCommissionAmount)
+                      : Math.round(((sellingPrice * commPct) / 100) * 100) / 100)
+                    : 0;
+                  const payout = isApexBeeComm
+                    ? (item.vendorPayoutAmount !== undefined && item.vendorPayoutAmount !== null
+                      ? Number(item.vendorPayoutAmount)
+                      : Math.max(0, Math.round((sellingPrice - commDeduction) * 100) / 100))
+                    : (item.vendorPayoutAmount && Number(item.vendorPayoutAmount) > 0 ? Number(item.vendorPayoutAmount) : sellingPrice);
 
                   return (
                     <tr key={item._id} className="hover:bg-slate-900/40 transition">
@@ -306,14 +311,14 @@ export const FinanceDashboard: React.FC = () => {
                         )}
                       </td>
                       <td className="p-4 text-right">
-                        <span className="px-2 py-1 rounded-lg bg-amber-500/10 text-amber-400 font-bold text-[11px]">
-                          {commPct}%
+                        <span className={`px-2 py-1 rounded-lg font-bold text-[11px] ${commPct > 0 ? 'bg-amber-500/10 text-amber-400' : 'bg-slate-800 text-slate-400'}`}>
+                          {commPct > 0 ? `${commPct}%` : '0%'}
                         </span>
                       </td>
                       <td className="p-4 text-right font-mono font-bold text-amber-400">
                         <div className="flex items-center justify-end space-x-1">
                           <ArrowDownRight className="w-3 h-3" />
-                          <span>₹{platformFee}</span>
+                          <span>₹{commDeduction}</span>
                         </div>
                       </td>
                       <td className="p-4 text-right font-mono font-bold text-emerald-400">
