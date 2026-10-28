@@ -82,6 +82,8 @@ export const MenuManagement: React.FC = () => {
     isBestseller: false,
     isRecommended: false,
     imageUrl: '',
+    packagingCharge: 0,
+    shippingCharge: 0,
     isPreOrder: false,
     preOrderType: 'ADVANCE_NOTICE' as 'ADVANCE_NOTICE' | 'DAILY_CUTOFF' | 'RELEASE_DATE',
     preOrderLeadTimeDays: 2,
@@ -246,6 +248,8 @@ export const MenuManagement: React.FC = () => {
         isBestseller: false,
         isRecommended: false,
         imageUrl: '',
+        packagingCharge: 0,
+        shippingCharge: 0,
         isPreOrder: false,
         preOrderType: 'ADVANCE_NOTICE',
         preOrderLeadTimeDays: 2,
@@ -273,6 +277,8 @@ export const MenuManagement: React.FC = () => {
       isBestseller: item.isBestseller || false,
       isRecommended: item.isRecommended || false,
       imageUrl: item.imageUrl || item.image || '',
+      packagingCharge: item.packagingCharge || (item as any).packingCharge || 0,
+      shippingCharge: (item as any).shippingCharge || (item as any).deliveryFee || 0,
       isPreOrder: Boolean(item.isPreOrder),
       preOrderType: (item.preOrderType || 'ADVANCE_NOTICE') as any,
       preOrderLeadTimeDays: item.preOrderLeadTimeDays ?? 2,
@@ -845,7 +851,7 @@ export const MenuManagement: React.FC = () => {
                 </div>
               </div>
 
-              <div className="grid grid-cols-3 gap-4">
+              <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
                 <div>
                   <label className="block text-xs font-semibold text-slate-300 mb-1">Base Price (₹) *</label>
                   <input
@@ -853,7 +859,7 @@ export const MenuManagement: React.FC = () => {
                     required
                     value={newItemData.basePrice}
                     onChange={(e) => setNewItemData({ ...newItemData, basePrice: Number(e.target.value) })}
-                    className="w-full px-4 py-2.5 bg-slate-900 border border-slate-800 rounded-xl text-xs text-slate-100 focus:outline-none focus:border-amber-500"
+                    className="w-full px-3 py-2.5 bg-slate-900 border border-slate-800 rounded-xl text-xs text-slate-100 focus:outline-none focus:border-amber-500"
                   />
                 </div>
 
@@ -864,7 +870,29 @@ export const MenuManagement: React.FC = () => {
                     value={newItemData.offerPrice}
                     onChange={(e) => setNewItemData({ ...newItemData, offerPrice: Number(e.target.value) })}
                     placeholder="0"
-                    className="w-full px-4 py-2.5 bg-slate-900 border border-slate-800 rounded-xl text-xs text-slate-100 focus:outline-none focus:border-amber-500"
+                    className="w-full px-3 py-2.5 bg-slate-900 border border-slate-800 rounded-xl text-xs text-slate-100 focus:outline-none focus:border-amber-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1">Packaging (₹)</label>
+                  <input
+                    type="number"
+                    value={newItemData.packagingCharge}
+                    onChange={(e) => setNewItemData({ ...newItemData, packagingCharge: Number(e.target.value) })}
+                    placeholder="0"
+                    className="w-full px-3 py-2.5 bg-slate-900 border border-slate-800 rounded-xl text-xs text-slate-100 focus:outline-none focus:border-amber-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1">Delivery Fee (₹)</label>
+                  <input
+                    type="number"
+                    value={newItemData.shippingCharge}
+                    onChange={(e) => setNewItemData({ ...newItemData, shippingCharge: Number(e.target.value) })}
+                    placeholder="0"
+                    className="w-full px-3 py-2.5 bg-slate-900 border border-slate-800 rounded-xl text-xs text-slate-100 focus:outline-none focus:border-amber-500"
                   />
                 </div>
 
@@ -875,7 +903,7 @@ export const MenuManagement: React.FC = () => {
                     required
                     value={newItemData.preparationTimeMinutes}
                     onChange={(e) => setNewItemData({ ...newItemData, preparationTimeMinutes: Number(e.target.value) })}
-                    className="w-full px-4 py-2.5 bg-slate-900 border border-slate-800 rounded-xl text-xs text-slate-100 focus:outline-none focus:border-amber-500"
+                    className="w-full px-3 py-2.5 bg-slate-900 border border-slate-800 rounded-xl text-xs text-slate-100 focus:outline-none focus:border-amber-500"
                   />
                 </div>
               </div>
