@@ -408,6 +408,8 @@ export const MenuManagement: React.FC = () => {
                   isBestseller: false,
                   isRecommended: false,
                   imageUrl: '',
+                  packagingCharge: 0,
+                  shippingCharge: 0,
                   isPreOrder: false,
                   preOrderType: 'ADVANCE_NOTICE',
                   preOrderLeadTimeDays: 2,
