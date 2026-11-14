@@ -20,6 +20,7 @@ export interface IQRMenuItem {
 
 export interface IQRRecord {
   id: string;
+  restaurantId?: string;
   tableNumber: string;
   section: string;
   capacity?: number;

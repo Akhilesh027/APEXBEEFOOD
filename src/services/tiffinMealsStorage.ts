@@ -36,7 +36,7 @@ export interface ITiffinCouponOrder {
   parcelCharge: number;
   items: ITiffinCouponItem[];
   totalAmount: number;
-  paymentMode: 'CASH' | 'UPI';
+  paymentMode: 'CASH' | 'UPI' | 'CARD';
   createdAt: string;
 }
 

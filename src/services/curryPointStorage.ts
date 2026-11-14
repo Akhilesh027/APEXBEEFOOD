@@ -35,7 +35,7 @@ export interface ICurryParcelOrder {
   containerCharge: number;
   items: ICurryParcelSlipItem[];
   totalAmount: number;
-  paymentMode: 'CASH' | 'UPI';
+  paymentMode: 'CASH' | 'UPI' | 'CARD';
   createdAt: string;
 }
 
