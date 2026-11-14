@@ -38,12 +38,16 @@ import {
   CreditCard,
   QrCode,
   Globe,
+  Sparkles,
+  Tv,
 } from 'lucide-react';
+import { ApexBeeLogo } from '../common/ApexBeeLogo';
 import { useFoodAuthStore } from '../../store/useFoodAuthStore';
 import { foodService } from '../../services/foodService';
 import { NotificationSound } from '../common/NotificationSound';
 import { qrMenuStorage, ICustomerPlacedOrder, IWaiterCall } from '../../services/qrMenuStorage';
 import { announceOrderVoice, announceWaiterCallVoice } from '../../utils/orderSpeechAnnouncer';
+import { getBusinessCapabilities } from '../../utils/businessCapabilities';
 
 export const FoodPartnerLayout: React.FC = () => {
   const location = useLocation();
@@ -89,9 +93,9 @@ export const FoodPartnerLayout: React.FC = () => {
         // Silent fallback
       }
 
-      // Refresh pending waiter calls count
+      // Refresh pending waiter calls count strictly for this restaurant
       try {
-        const pending = qrMenuStorage.getWaiterCalls().filter((c) => c.status === 'PENDING').length;
+        const pending = qrMenuStorage.getWaiterCalls(restaurant?._id).filter((c) => c.status === 'PENDING').length;
         setWaiterCallsCount(pending);
       } catch (e) {}
     };
@@ -99,14 +103,20 @@ export const FoodPartnerLayout: React.FC = () => {
     fetchLiveFeed();
     const interval = setInterval(fetchLiveFeed, 10000);
     return () => clearInterval(interval);
-  }, [liveCount, soundMuted]);
+  }, [liveCount, soundMuted, restaurant?._id]);
 
   // Global listeners for real-time order & waiter speech announcements across all portal pages
   useEffect(() => {
     const handleOrderEvent = (e: any) => {
       const order: ICustomerPlacedOrder = e.detail;
       if (!order) return;
-      if (!soundMuted) {
+      // Filter out orders belonging to other restaurants
+      if (order.restaurantId && restaurant?._id && String(order.restaurantId) !== String(restaurant._id)) {
+        return;
+      }
+      // When on /waiter-requests, that page manages its own voice announcer
+      const isOnWaiterPage = window.location.pathname.includes('/waiter-requests');
+      if (!soundMuted && !isOnWaiterPage) {
         const itemsDesc = order.items.map((i) => `${i.quantity} ${i.item.name}`).join(', ');
         announceOrderVoice(order.tableNumber, itemsDesc, order.grandTotal);
       }
@@ -116,7 +126,13 @@ export const FoodPartnerLayout: React.FC = () => {
     const handleWaiterCallEvent = (e: any) => {
       const call: IWaiterCall = e.detail;
       if (!call) return;
-      if (!soundMuted) {
+      // Filter out waiter calls from other restaurants
+      if (call.restaurantId && restaurant?._id && String(call.restaurantId) !== String(restaurant._id)) {
+        return;
+      }
+      // When on /waiter-requests, that page manages its own voice announcer
+      const isOnWaiterPage = window.location.pathname.includes('/waiter-requests');
+      if (!soundMuted && !isOnWaiterPage) {
         announceWaiterCallVoice(call.tableNumber, call.reason || 'assistance');
       }
       setWaiterCallsCount((prev) => prev + 1);
@@ -128,7 +144,7 @@ export const FoodPartnerLayout: React.FC = () => {
       window.removeEventListener('apexbee:new_order', handleOrderEvent);
       window.removeEventListener('apexbee:waiter_call', handleWaiterCallEvent);
     };
-  }, [soundMuted]);
+  }, [soundMuted, restaurant?._id]);
 
   const handleToggleAccepting = async () => {
     if (!restaurant) return;
@@ -185,28 +201,44 @@ export const FoodPartnerLayout: React.FC = () => {
     }
   };
 
+  const caps = getBusinessCapabilities(
+    restaurant?.businessType,
+    restaurant?.diningEnabled,
+    restaurant?.cuisines
+  );
+
   const navGroups = [
     {
-      title: 'OPERATIONS & DINE-IN',
+      title: caps.isBakery
+        ? (caps.canManageTables ? 'BAKERY & CAFÉ OPERATIONS' : 'BAKERY COUNTER OPERATIONS')
+        : caps.isCurryPoint
+        ? 'CURRY POINT & TAKEAWAY OPERATIONS'
+        : caps.isTiffinsMeals
+        ? 'TIFFINS, MEALS & MESS OPERATIONS'
+        : caps.isFastFood
+        ? 'FAST FOOD & QSR OPERATIONS'
+        : (caps.canManageTables ? 'OPERATIONS & DINE-IN' : 'OPERATIONS & COUNTER'),
       items: [
         { label: 'Dashboard', path: '/dashboard', icon: LayoutDashboard, perm: '*' },
-        { label: 'Live Kitchen Orders', path: '/orders/live', icon: ShoppingBag, badge: liveCount, perm: 'orders' },
+        { label: caps.ordersLabel, path: '/orders/live', icon: ShoppingBag, badge: liveCount, perm: 'orders' },
+        ...(caps.canManageTokens ? [{ label: 'Token Display & KDS', path: '/tokens', icon: Tv, perm: '*' }] : []),
         { label: 'Online Website Orders', path: '/orders/live?channel=online', icon: Globe, perm: 'orders' },
         { label: 'Offline / QR Orders', path: '/orders/live?channel=offline', icon: QrCode, perm: 'orders' },
-        { label: 'POS Terminal', path: '/pos', icon: Calculator, perm: '*' },
-        { label: 'Tables', path: '/tables', icon: LayoutGrid, perm: '*' },
-        { label: 'QR & Digital Menus', path: '/qr-codes', icon: QrCode, perm: '*' },
-        { label: 'Waiter Requests', path: '/waiter-requests', icon: BellRing, badge: waiterCallsCount > 0 ? waiterCallsCount : undefined, perm: '*' },
-        { label: 'Reservations', path: '/reservations', icon: CalendarCheck, perm: '*' },
-        { label: 'Fast Availability', path: '/availability', icon: CheckCircle2, perm: 'availability' },
+        { label: caps.posLabel, path: '/pos', icon: Calculator, perm: '*' },
+        ...(caps.isBakery ? [{ label: 'Advance Cake Orders', path: '/advance-orders', icon: Sparkles, perm: '*' }] : []),
+        ...(caps.canManageTables ? [{ label: 'Tables', path: '/tables', icon: LayoutGrid, perm: '*' }] : []),
+        { label: caps.canManageTables ? 'QR & Digital Menus' : 'Counter Standee QR', path: '/qr-codes', icon: QrCode, perm: '*' },
+        ...(caps.canManageWaiterRequests ? [{ label: 'Waiter Requests', path: '/waiter-requests', icon: BellRing, badge: waiterCallsCount > 0 ? waiterCallsCount : undefined, perm: '*' }] : []),
+        ...(caps.canManageReservations ? [{ label: 'Reservations', path: '/reservations', icon: CalendarCheck, perm: '*' }] : []),
+        { label: caps.isCurryPoint ? 'Handi Pot Stock Out' : caps.isTiffinsMeals ? 'Batter & Meals Stock Out' : caps.isFastFood ? 'Fast 86 Stock Out' : caps.isBakery ? 'Fresh Batch Stock' : 'Fast Availability', path: '/availability', icon: CheckCircle2, perm: 'availability' },
       ],
     },
     {
-      title: 'MENU & INVENTORY',
+      title: caps.isBakery ? 'BAKERY CATALOG & RECIPES' : caps.isCurryPoint ? 'CURRY POTS, ROTIS & COMBOS' : caps.isTiffinsMeals ? 'TIFFINS, THALIS & CURRIES' : caps.isFastFood ? 'FAST FOOD MENU & COMBOS' : 'MENU & INVENTORY',
       items: [
-        { label: 'Menu Items', path: '/menu/items', icon: BookOpen, perm: 'menu' },
-        { label: 'Categories', path: '/menu/categories', icon: Layers, perm: 'menu' },
-        { label: 'Variants & Add-ons', path: '/menu/addons', icon: Tag, perm: 'menu' },
+        { label: caps.menuLabel, path: '/menu/items', icon: BookOpen, perm: 'menu' },
+        { label: caps.isBakery ? 'Bakery Categories' : 'Categories', path: '/menu/categories', icon: Layers, perm: 'menu' },
+        { label: caps.isBakery ? 'Weights & Cake Add-ons' : caps.isCurryPoint ? 'Portion Volumes & Roti Counts' : caps.isTiffinsMeals ? 'Extra Chutneys, Podis & Combos' : 'Variants & Combos', path: '/menu/addons', icon: Tag, perm: 'menu' },
         { label: 'Inventory & My Suppliers', path: '/inventory-suppliers', icon: Boxes, perm: '*' },
       ],
     },
@@ -229,11 +261,11 @@ export const FoodPartnerLayout: React.FC = () => {
       ],
     },
     {
-      title: 'RESTAURANT & MANAGEMENT',
+      title: caps.isBakery ? 'BAKERY & STORE DETAILS' : caps.isFastFood ? 'FAST FOOD STORE PROFILE' : 'RESTAURANT & MANAGEMENT',
       items: [
-        { label: 'Profile & Details', path: '/restaurant/profile', icon: Building2, perm: 'profile' },
-        { label: 'Dining & Bookings', path: '/dining', icon: UtensilsCrossed, perm: 'orders' },
-        { label: 'Operating Hours', path: '/restaurant/hours', icon: Clock, perm: 'profile' },
+        { label: caps.isBakery ? 'Bakery Profile' : 'Profile & Details', path: '/restaurant/profile', icon: Building2, perm: 'profile' },
+        ...(caps.canManageDiningBookings ? [{ label: 'Dining & Bookings', path: '/dining', icon: UtensilsCrossed, perm: 'orders' }] : []),
+        { label: 'Baking & Store Hours', path: '/restaurant/hours', icon: Clock, perm: 'profile' },
         { label: 'Offers & Discounts', path: '/offers', icon: Tag, perm: 'offers' },
         { label: 'Customer Reviews', path: '/reviews', icon: Star, perm: 'reviews' },
         { label: 'Analytics', path: '/analytics', icon: BarChart3, perm: 'reports' },
@@ -250,15 +282,9 @@ export const FoodPartnerLayout: React.FC = () => {
 
       {/* MOBILE HEADER */}
       <div className="md:hidden flex items-center justify-between px-4 py-3 bg-slate-900 border-b border-slate-800 sticky top-0 z-40">
-        <div className="flex items-center space-x-2">
-          <div className="p-1.5 bg-amber-500 text-slate-950 rounded-lg">
-            <Utensils className="w-5 h-5 font-bold" />
-          </div>
-          <div>
-            <div className="font-bold text-sm text-slate-100 font-heading leading-tight">APEXBEE FOOD</div>
-            <div className="text-[10px] text-amber-400 font-medium">PARTNER PORTAL</div>
-          </div>
-        </div>
+        <Link to="/dashboard" className="flex items-center">
+          <ApexBeeLogo height={24} subtitle={caps.isBakery ? 'Bakery Partner' : caps.isCurryPoint ? 'Curry Point' : caps.isTiffinsMeals ? 'Tiffins & Meals' : caps.isFastFood ? 'Fast Food QSR' : 'Food Partner'} />
+        </Link>
 
         <div className="flex items-center space-x-2">
           <button
@@ -284,24 +310,21 @@ export const FoodPartnerLayout: React.FC = () => {
         }`}
       >
         {/* LOGO BRANDING */}
-        <div className="p-5 border-b border-slate-800/80 flex items-center justify-between">
-          <div className="flex items-center space-x-3">
-            <div className="p-2.5 bg-gradient-to-tr from-amber-500 to-amber-400 text-slate-950 rounded-xl shadow-lg shadow-amber-500/20">
-              <Utensils className="w-6 h-6 font-bold" />
-            </div>
-            <div>
-              <div className="font-extrabold text-base tracking-wide text-slate-100 font-heading">APEXBEE</div>
-              <div className="text-[11px] font-semibold text-amber-400 tracking-wider">FOOD PARTNER</div>
-            </div>
-          </div>
+        <div className="p-4 border-b border-slate-800/80 flex items-center justify-between">
+          <Link to="/dashboard" className="flex items-center">
+            <ApexBeeLogo height={32} subtitle={caps.isBakery ? 'Bakery Partner OS' : caps.isCurryPoint ? 'Curry Point OS' : caps.isTiffinsMeals ? 'Tiffins & Meals OS' : caps.isFastFood ? 'Fast Food & QSR OS' : 'Food Partner OS'} />
+          </Link>
         </div>
 
         {/* RESTAURANT BRANCH CONTEXT CARD */}
-        <div className="px-4 py-3 mx-3 my-3 bg-slate-950/60 border border-slate-800/80 rounded-xl">
-          <div className="text-xs font-bold text-slate-200 truncate">{restaurant?.restaurantName || 'ApexBee Restaurant'}</div>
-          <div className="text-[11px] text-slate-400 flex items-center justify-between mt-1">
-            <span className="capitalize">{restaurant?.businessType?.replace('_', ' ') || 'Restaurant'}</span>
-            <span className="text-emerald-400 font-medium">{restaurant?.locality || 'Hyderabad'}</span>
+        <div className="px-4 py-3 mx-3 my-3 bg-slate-950/60 border border-slate-800/80 rounded-xl space-y-1.5">
+          <div className="text-xs font-bold text-slate-200 truncate">{restaurant?.restaurantName || 'ApexBee Food Partner'}</div>
+          <div className="flex items-center justify-between text-[10px] gap-1">
+            <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md border font-bold text-[10px] truncate max-w-[140px] ${caps.formatBadgeColor}`}>
+              <span>{caps.formatBadgeIcon}</span>
+              <span className="truncate">{caps.formatLabel}</span>
+            </span>
+            <span className="text-emerald-400 font-medium truncate max-w-[70px] text-right">{restaurant?.locality || 'Active'}</span>
           </div>
         </div>
 
@@ -341,7 +364,9 @@ export const FoodPartnerLayout: React.FC = () => {
                         {item.badge && item.badge > 0 ? (
                           <span
                             className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                              isActive ? 'bg-slate-950 text-amber-400' : 'bg-amber-500 text-slate-950 animate-pulse'
+                              isActive
+                                ? 'bg-slate-950 text-amber-400'
+                                : 'bg-amber-500 text-slate-950 animate-pulse'
                             }`}
                           >
                             {item.badge}
@@ -405,19 +430,21 @@ export const FoodPartnerLayout: React.FC = () => {
               <span>{restaurant?.busyMode ? 'BUSY MODE (+15m ETA)' : 'NORMAL SPEED'}</span>
             </button>
 
-            {/* DINING IN TOGGLE */}
-            <button
-              onClick={handleToggleDining}
-              disabled={updatingStatus}
-              className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center space-x-2 border cursor-pointer ${
-                restaurant?.diningEnabled !== false
-                  ? 'bg-purple-500/20 text-purple-300 border-purple-500/40 hover:bg-purple-500/30'
-                  : 'bg-slate-800/60 text-slate-400 border-slate-700/60 hover:text-slate-200'
-              }`}
-            >
-              <UtensilsCrossed className="w-4 h-4" />
-              <span>{restaurant?.diningEnabled !== false ? 'DINING IN (ACTIVE)' : 'DINING IN (OFF)'}</span>
-            </button>
+            {/* DINING IN TOGGLE - Only visible for sit-down restaurants & dining cafes */}
+            {caps.canManageTables && (
+              <button
+                onClick={handleToggleDining}
+                disabled={updatingStatus}
+                className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center space-x-2 border cursor-pointer ${
+                  restaurant?.diningEnabled !== false
+                    ? 'bg-purple-500/20 text-purple-300 border-purple-500/40 hover:bg-purple-500/30'
+                    : 'bg-slate-800/60 text-slate-400 border-slate-700/60 hover:text-slate-200'
+                }`}
+              >
+                <UtensilsCrossed className="w-4 h-4" />
+                <span>{restaurant?.diningEnabled !== false ? 'DINING IN (ACTIVE)' : 'DINING IN (OFF)'}</span>
+              </button>
+            )}
           </div>
 
           {/* RIGHT: NOTIFICATION & USER PROFILE */}
@@ -480,3 +507,5 @@ export const FoodPartnerLayout: React.FC = () => {
     </div>
   );
 };
+
+export default FoodPartnerLayout;

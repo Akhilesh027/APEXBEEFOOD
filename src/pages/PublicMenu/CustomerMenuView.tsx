@@ -34,6 +34,7 @@ export const CustomerMenuView: React.FC = () => {
 
   const qrIdParam = searchParams.get('qr') || '';
   const tableParam = searchParams.get('table') || 'T-01';
+  const restParam = searchParams.get('restaurant') || '';
 
   // State
   const [qrRecord, setQrRecord] = useState<IQRRecord | null>(null);
@@ -64,7 +65,7 @@ export const CustomerMenuView: React.FC = () => {
       setLoading(true);
       const targetQuery = qrIdParam || tableParam;
       try {
-        const res = await foodService.getScannedMenu(targetQuery);
+        const res = await foodService.getScannedMenu(targetQuery, restParam);
         if (isMounted && res.data?.success) {
           if (res.data.table) {
             setQrRecord(res.data.table);
@@ -185,9 +186,11 @@ export const CustomerMenuView: React.FC = () => {
   const handlePlaceOrder = () => {
     if (cartEntries.length === 0) return;
 
+    const effectiveRestId = restaurantProfile?._id || qrRecord?.restaurantId || restParam || undefined;
     const orderNum = `#TB-${Math.floor(1000 + Math.random() * 9000)}`;
     const newOrder: ICustomerPlacedOrder = {
       orderId: `ord-${Date.now()}`,
+      restaurantId: effectiveRestId,
       qrId: qrRecord?.id || qrIdParam,
       tableNumber: qrRecord?.tableNumber || tableParam,
       customerName: customerName || 'Dine-In Guest',
@@ -210,10 +213,28 @@ export const CustomerMenuView: React.FC = () => {
     setConfirmedOrder(newOrder);
     setIsCartOpen(false);
     setCart({});
+
+    // Also sync to backend so live kitchen orders and tables are updated
+    foodService.placeCustomerTableOrder({
+      qrToken: qrRecord?.id || qrIdParam,
+      tableNumber: qrRecord?.tableNumber || tableParam,
+      restaurantId: effectiveRestId,
+      customerName: customerName || 'Dine-In Guest',
+      customerPhone,
+      orderNotes,
+      items: cartEntries.map((c) => ({
+        itemId: c.item.id,
+        name: c.item.name,
+        price: c.item.price,
+        quantity: c.quantity,
+        notes: orderNotes,
+      })),
+    }).catch(() => { });
   };
 
   const handleCallWaiter = (reason: string) => {
     const tableNum = qrRecord?.tableNumber || tableParam;
+    const effectiveRestId = restaurantProfile?._id || qrRecord?.restaurantId || restParam || undefined;
     let callType: any = 'CALL_WAITER';
     if (reason.toLowerCase().includes('water')) callType = 'WATER';
     else if (reason.toLowerCase().includes('bill') || reason.toLowerCase().includes('cheque')) callType = 'BILL';
@@ -221,6 +242,7 @@ export const CustomerMenuView: React.FC = () => {
 
     qrMenuStorage.saveWaiterCall({
       id: `call-${Date.now()}`,
+      restaurantId: effectiveRestId,
       tableNumber: tableNum,
       section: qrRecord?.section || 'Main Dining Hall',
       type: callType,
@@ -352,11 +374,10 @@ export const CustomerMenuView: React.FC = () => {
           {/* VEG ONLY TOGGLE */}
           <button
             onClick={() => setVegOnly(!vegOnly)}
-            className={`px-3 py-2 rounded-xl text-xs font-bold transition flex items-center justify-center space-x-2 border ${
-              vegOnly
+            className={`px-3 py-2 rounded-xl text-xs font-bold transition flex items-center justify-center space-x-2 border ${vegOnly
                 ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/50'
                 : 'bg-slate-950 border-slate-800 text-slate-400 hover:text-slate-200'
-            }`}
+              }`}
           >
             <span className="w-3 h-3 rounded-full border border-emerald-500 flex items-center justify-center">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
@@ -371,11 +392,10 @@ export const CustomerMenuView: React.FC = () => {
             <button
               key={cat}
               onClick={() => setSelectedCategory(cat)}
-              className={`px-3.5 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition ${
-                selectedCategory === cat
+              className={`px-3.5 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition ${selectedCategory === cat
                   ? 'bg-amber-500 text-slate-950 shadow-md shadow-amber-500/20'
                   : 'bg-slate-900/80 border border-slate-800 text-slate-400 hover:text-slate-200'
-              }`}
+                }`}
             >
               {cat}
             </button>
@@ -414,108 +434,107 @@ export const CustomerMenuView: React.FC = () => {
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
             {filteredItems.map((item) => {
-            const qty = cart[item.id] || 0;
-            const isVeg = item.foodType === 'VEG';
+              const qty = cart[item.id] || 0;
+              const isVeg = item.foodType === 'VEG';
 
-            return (
-              <div
-                key={item.id}
-                className="bg-slate-900/80 border border-slate-800/90 hover:border-amber-500/40 rounded-3xl p-4 transition-all duration-200 flex flex-col justify-between group shadow-lg"
-              >
-                <div className="flex items-start justify-between gap-3">
-                  <div className="flex-1 pr-1">
-                    {/* FOOD TYPE & CATEGORY */}
-                    <div className="flex items-center space-x-2 mb-1.5">
-                      <span
-                        className={`w-3.5 h-3.5 rounded border flex items-center justify-center ${
-                          isVeg ? 'border-emerald-500 bg-emerald-500/10' : 'border-rose-500 bg-rose-500/10'
-                        }`}
-                      >
-                        <span className={`w-1.5 h-1.5 rounded-full ${isVeg ? 'bg-emerald-500' : 'bg-rose-500'}`} />
-                      </span>
-                      <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">
-                        {item.category}
-                      </span>
-                      {item.isBestseller && (
-                        <span className="text-[9px] px-1.5 py-0.2 rounded-md bg-amber-500/15 text-amber-300 font-extrabold flex items-center space-x-0.5">
-                          <Flame className="w-2.5 h-2.5 text-amber-400" />
-                          <span>Bestseller</span>
+              return (
+                <div
+                  key={item.id}
+                  className="bg-slate-900/80 border border-slate-800/90 hover:border-amber-500/40 rounded-3xl p-4 transition-all duration-200 flex flex-col justify-between group shadow-lg"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex-1 pr-1">
+                      {/* FOOD TYPE & CATEGORY */}
+                      <div className="flex items-center space-x-2 mb-1.5">
+                        <span
+                          className={`w-3.5 h-3.5 rounded border flex items-center justify-center ${isVeg ? 'border-emerald-500 bg-emerald-500/10' : 'border-rose-500 bg-rose-500/10'
+                            }`}
+                        >
+                          <span className={`w-1.5 h-1.5 rounded-full ${isVeg ? 'bg-emerald-500' : 'bg-rose-500'}`} />
+                        </span>
+                        <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">
+                          {item.category}
+                        </span>
+                        {item.isBestseller && (
+                          <span className="text-[9px] px-1.5 py-0.2 rounded-md bg-amber-500/15 text-amber-300 font-extrabold flex items-center space-x-0.5">
+                            <Flame className="w-2.5 h-2.5 text-amber-400" />
+                            <span>Bestseller</span>
+                          </span>
+                        )}
+                      </div>
+
+                      {/* TITLE & DESCRIPTION */}
+                      <h3 className="font-bold text-sm text-slate-100 group-hover:text-amber-400 transition font-heading">
+                        {item.name}
+                      </h3>
+                      <p className="text-[11px] text-slate-400 mt-1 line-clamp-2 leading-relaxed">
+                        {item.description}
+                      </p>
+
+                      {/* PREP TIME */}
+                      <div className="flex items-center space-x-1 text-[10px] text-slate-500 mt-2">
+                        <Clock className="w-3 h-3" />
+                        <span>{item.preparationMinutes || 15} mins prep</span>
+                      </div>
+                    </div>
+
+                    {/* DISH IMAGE */}
+                    {item.image && (
+                      <div className="relative w-20 h-20 sm:w-24 sm:h-24 rounded-2xl overflow-hidden shrink-0 border border-slate-800">
+                        <img
+                          src={item.image}
+                          alt={item.name}
+                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                          loading="lazy"
+                        />
+                      </div>
+                    )}
+                  </div>
+
+                  {/* PRICE & ADD BUTTON */}
+                  <div className="mt-4 pt-3 border-t border-slate-800/80 flex items-center justify-between">
+                    <div>
+                      <span className="font-mono font-extrabold text-base text-slate-100">₹{item.price}</span>
+                      {discountPercent > 0 && (
+                        <span className="text-[10px] text-emerald-400 ml-1.5 font-bold">
+                          ₹{Math.round(item.price * (1 - discountPercent / 100))} after promo
                         </span>
                       )}
                     </div>
 
-                    {/* TITLE & DESCRIPTION */}
-                    <h3 className="font-bold text-sm text-slate-100 group-hover:text-amber-400 transition font-heading">
-                      {item.name}
-                    </h3>
-                    <p className="text-[11px] text-slate-400 mt-1 line-clamp-2 leading-relaxed">
-                      {item.description}
-                    </p>
-
-                    {/* PREP TIME */}
-                    <div className="flex items-center space-x-1 text-[10px] text-slate-500 mt-2">
-                      <Clock className="w-3 h-3" />
-                      <span>{item.preparationMinutes || 15} mins prep</span>
-                    </div>
-                  </div>
-
-                  {/* DISH IMAGE */}
-                  {item.image && (
-                    <div className="relative w-20 h-20 sm:w-24 sm:h-24 rounded-2xl overflow-hidden shrink-0 border border-slate-800">
-                      <img
-                        src={item.image}
-                        alt={item.name}
-                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                        loading="lazy"
-                      />
-                    </div>
-                  )}
-                </div>
-
-                {/* PRICE & ADD BUTTON */}
-                <div className="mt-4 pt-3 border-t border-slate-800/80 flex items-center justify-between">
-                  <div>
-                    <span className="font-mono font-extrabold text-base text-slate-100">₹{item.price}</span>
-                    {discountPercent > 0 && (
-                      <span className="text-[10px] text-emerald-400 ml-1.5 font-bold">
-                        ₹{Math.round(item.price * (1 - discountPercent / 100))} after promo
-                      </span>
-                    )}
-                  </div>
-
-                  {/* ADD TO CART / QUANTITY CONTROLLER */}
-                  {qty === 0 ? (
-                    <button
-                      onClick={() => addToCart(item.id)}
-                      className="px-3.5 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-extrabold text-xs shadow-md shadow-amber-500/20 transition flex items-center space-x-1 cursor-pointer"
-                    >
-                      <Plus className="w-3.5 h-3.5" />
-                      <span>ADD</span>
-                    </button>
-                  ) : (
-                    <div className="flex items-center bg-slate-950 border border-amber-500/50 rounded-xl p-0.5">
-                      <button
-                        onClick={() => removeFromCart(item.id)}
-                        className="p-1.5 text-amber-400 hover:text-white transition"
-                      >
-                        <Minus className="w-3.5 h-3.5" />
-                      </button>
-                      <span className="px-2 font-mono font-black text-amber-400 text-xs">{qty}</span>
+                    {/* ADD TO CART / QUANTITY CONTROLLER */}
+                    {qty === 0 ? (
                       <button
                         onClick={() => addToCart(item.id)}
-                        className="p-1.5 text-amber-400 hover:text-white transition"
+                        className="px-3.5 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-extrabold text-xs shadow-md shadow-amber-500/20 transition flex items-center space-x-1 cursor-pointer"
                       >
                         <Plus className="w-3.5 h-3.5" />
+                        <span>ADD</span>
                       </button>
-                    </div>
-                  )}
+                    ) : (
+                      <div className="flex items-center bg-slate-950 border border-amber-500/50 rounded-xl p-0.5">
+                        <button
+                          onClick={() => removeFromCart(item.id)}
+                          className="p-1.5 text-amber-400 hover:text-white transition"
+                        >
+                          <Minus className="w-3.5 h-3.5" />
+                        </button>
+                        <span className="px-2 font-mono font-black text-amber-400 text-xs">{qty}</span>
+                        <button
+                          onClick={() => addToCart(item.id)}
+                          className="p-1.5 text-amber-400 hover:text-white transition"
+                        >
+                          <Plus className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    )}
+                  </div>
                 </div>
-              </div>
-            );
-          })}
-        </div>
-      )}
-    </main>
+              );
+            })}
+          </div>
+        )}
+      </main>
 
       {/* FLOATING CART BAR (WHEN ITEMS IN CART) */}
       {totalCartCount > 0 && !isCartOpen && (

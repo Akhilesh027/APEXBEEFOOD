@@ -16,10 +16,13 @@ import {
   QrCode,
   Layers,
   UtensilsCrossed,
+  Truck,
 } from 'lucide-react';
 import { useSearchParams } from 'react-router-dom';
 import { foodService } from '../../services/foodService';
 import { IFoodOrder } from '../../types/foodPartner';
+import { useFoodAuthStore } from '../../store/useFoodAuthStore';
+import { getBusinessCapabilities } from '../../utils/businessCapabilities';
 const KitchenLiveCountdownBadge = ({ estimatedDeliveryTime, prepMins }: { estimatedDeliveryTime?: string; prepMins?: number }) => {
   const [timeLeft, setTimeLeft] = useState<string>('');
   const [isOverdue, setIsOverdue] = useState<boolean>(false);
@@ -68,6 +71,12 @@ const KitchenLiveCountdownBadge = ({ estimatedDeliveryTime, prepMins }: { estima
 };
 
 export const LiveOrders: React.FC = () => {
+  const restaurant = useFoodAuthStore((state) => state.restaurant);
+  const caps = React.useMemo(
+    () => getBusinessCapabilities(restaurant?.businessType, restaurant?.diningEnabled, restaurant?.cuisines),
+    [restaurant?.businessType, restaurant?.diningEnabled, restaurant?.cuisines]
+  );
+
   const [searchParams, setSearchParams] = useSearchParams();
   const initialChannel = (searchParams.get('channel') || searchParams.get('type') || 'all') as 'all' | 'online' | 'offline';
   const [selectedChannel, setSelectedChannel] = useState<'all' | 'online' | 'offline'>(
@@ -186,12 +195,18 @@ export const LiveOrders: React.FC = () => {
       {/* TITLE & TABS */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-extrabold font-heading text-slate-100 flex items-center space-x-2">
-            <ShoppingBag className="w-6 h-6 text-amber-400" />
-            <span>Live Kitchen Order Operations</span>
-          </h1>
-          <p className="text-xs text-slate-400 mt-0.5">
-            Accept orders, cook dishes, manage dine-in table QR orders (no OTP needed), and verify rider OTP for online deliveries.
+          <div className="flex items-center space-x-2">
+            <span className="p-1.5 rounded-xl text-base bg-amber-500/10 text-amber-400 border border-amber-500/20">
+              {caps.formatBadgeIcon}
+            </span>
+            <h1 className="text-2xl font-extrabold font-heading text-slate-100">
+              {caps.isBakery ? 'Live Counter & Cake Order Operations' : 'Live Kitchen Order Operations'}
+            </h1>
+          </div>
+          <p className="text-xs text-slate-400 mt-1">
+            {caps.isBakery
+              ? 'Accept cake pre-orders, prepare fresh bakes, manage counter pickup orders, and dispatch deliveries.'
+              : 'Accept orders, cook dishes, manage dine-in table QR orders (no OTP needed), and verify rider OTP for online deliveries.'}
           </p>
         </div>
 
@@ -245,16 +260,14 @@ export const LiveOrders: React.FC = () => {
         {/* TAB 1: ALL CHANNELS */}
         <button
           onClick={() => handleChannelChange('all')}
-          className={`p-4 rounded-2xl border text-left transition flex items-center justify-between cursor-pointer ${
-            selectedChannel === 'all'
+          className={`p-4 rounded-2xl border text-left transition flex items-center justify-between cursor-pointer ${selectedChannel === 'all'
               ? 'bg-amber-500/15 border-amber-500 text-slate-100 shadow-lg shadow-amber-500/10 ring-1 ring-amber-500/30'
               : 'bg-slate-900/60 border-slate-800 text-slate-400 hover:border-slate-700 hover:text-slate-200'
-          }`}
+            }`}
         >
           <div className="flex items-center space-x-3">
-            <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-bold text-lg ${
-              selectedChannel === 'all' ? 'bg-amber-500 text-slate-950 shadow-md' : 'bg-slate-800 text-slate-400'
-            }`}>
+            <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-bold text-lg ${selectedChannel === 'all' ? 'bg-amber-500 text-slate-950 shadow-md' : 'bg-slate-800 text-slate-400'
+              }`}>
               ⚡
             </div>
             <div>
@@ -268,16 +281,14 @@ export const LiveOrders: React.FC = () => {
         {/* TAB 2: ONLINE WEBSITE ORDERS */}
         <button
           onClick={() => handleChannelChange('online')}
-          className={`p-4 rounded-2xl border text-left transition flex items-center justify-between cursor-pointer ${
-            selectedChannel === 'online'
+          className={`p-4 rounded-2xl border text-left transition flex items-center justify-between cursor-pointer ${selectedChannel === 'online'
               ? 'bg-cyan-500/20 border-cyan-400 text-cyan-100 shadow-lg shadow-cyan-500/15 ring-1 ring-cyan-400/40'
               : 'bg-slate-900/60 border-slate-800 text-slate-400 hover:border-slate-700 hover:text-slate-200'
-          }`}
+            }`}
         >
           <div className="flex items-center space-x-3">
-            <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-bold ${
-              selectedChannel === 'online' ? 'bg-cyan-500 text-slate-950 shadow-md' : 'bg-slate-800 text-cyan-400'
-            }`}>
+            <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-bold ${selectedChannel === 'online' ? 'bg-cyan-500 text-slate-950 shadow-md' : 'bg-slate-800 text-cyan-400'
+              }`}>
               <Globe className="w-5 h-5" />
             </div>
             <div>
@@ -293,23 +304,23 @@ export const LiveOrders: React.FC = () => {
         {/* TAB 3: OFFLINE QR CODE ORDERS */}
         <button
           onClick={() => handleChannelChange('offline')}
-          className={`p-4 rounded-2xl border text-left transition flex items-center justify-between cursor-pointer ${
-            selectedChannel === 'offline'
+          className={`p-4 rounded-2xl border text-left transition flex items-center justify-between cursor-pointer ${selectedChannel === 'offline'
               ? 'bg-purple-500/20 border-purple-400 text-purple-100 shadow-lg shadow-purple-500/15 ring-1 ring-purple-400/40'
               : 'bg-slate-900/60 border-slate-800 text-slate-400 hover:border-slate-700 hover:text-slate-200'
-          }`}
+            }`}
         >
           <div className="flex items-center space-x-3">
-            <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-bold ${
-              selectedChannel === 'offline' ? 'bg-purple-500 text-slate-950 shadow-md' : 'bg-slate-800 text-purple-400'
-            }`}>
+            <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-bold ${selectedChannel === 'offline' ? 'bg-purple-500 text-slate-950 shadow-md' : 'bg-slate-800 text-purple-400'
+              }`}>
               <QrCode className="w-5 h-5" />
             </div>
             <div>
               <div className="text-xs font-extrabold uppercase tracking-wide flex items-center gap-1.5 text-purple-200">
                 <span>Offline / QR Code Orders</span>
               </div>
-              <div className="text-[10px] text-slate-400">Dine-In Table QR Scans</div>
+              <div className="text-[10px] text-slate-400">
+                {caps.isBakery ? 'Counter QR & Showcase Scans' : 'Dine-In Table QR Scans'}
+              </div>
             </div>
           </div>
           <span className="text-xl font-black font-mono text-purple-300">{offlineQrOrders.length}</span>
@@ -320,9 +331,8 @@ export const LiveOrders: React.FC = () => {
       <div className="flex bg-slate-900/90 p-1.5 rounded-2xl border border-slate-800 max-w-2xl">
         <button
           onClick={() => setActiveTab('all')}
-          className={`flex-1 py-2.5 px-3 rounded-xl text-xs font-bold transition flex items-center justify-center space-x-2 ${
-            activeTab === 'all' ? 'bg-amber-500 text-slate-950 shadow-md' : 'text-slate-400 hover:text-white'
-          }`}
+          className={`flex-1 py-2.5 px-3 rounded-xl text-xs font-bold transition flex items-center justify-center space-x-2 ${activeTab === 'all' ? 'bg-amber-500 text-slate-950 shadow-md' : 'text-slate-400 hover:text-white'
+            }`}
         >
           <span>ALL STATUS</span>
           <span className="px-1.5 py-0.5 rounded-full text-[10px] bg-slate-950/20">{channelFilteredOrders.length}</span>
@@ -330,9 +340,8 @@ export const LiveOrders: React.FC = () => {
 
         <button
           onClick={() => setActiveTab('placed')}
-          className={`flex-1 py-2.5 px-3 rounded-xl text-xs font-bold transition flex items-center justify-center space-x-2 ${
-            activeTab === 'placed' ? 'bg-amber-500 text-slate-950 shadow-md' : 'text-slate-400 hover:text-white'
-          }`}
+          className={`flex-1 py-2.5 px-3 rounded-xl text-xs font-bold transition flex items-center justify-center space-x-2 ${activeTab === 'placed' ? 'bg-amber-500 text-slate-950 shadow-md' : 'text-slate-400 hover:text-white'
+            }`}
         >
           <span>NEW ORDERS</span>
           <span className="px-1.5 py-0.5 rounded-full text-[10px] bg-slate-950/20">{channelFilteredOrders.filter((o) => (o.orderStatus || '').toLowerCase() === 'placed').length}</span>
@@ -340,9 +349,8 @@ export const LiveOrders: React.FC = () => {
 
         <button
           onClick={() => setActiveTab('preparing')}
-          className={`flex-1 py-2.5 px-3 rounded-xl text-xs font-bold transition flex items-center justify-center space-x-2 ${
-            activeTab === 'preparing' ? 'bg-amber-500 text-slate-950 shadow-md' : 'text-slate-400 hover:text-white'
-          }`}
+          className={`flex-1 py-2.5 px-3 rounded-xl text-xs font-bold transition flex items-center justify-center space-x-2 ${activeTab === 'preparing' ? 'bg-amber-500 text-slate-950 shadow-md' : 'text-slate-400 hover:text-white'
+            }`}
         >
           <span>PREPARING</span>
           <span className="px-1.5 py-0.5 rounded-full text-[10px] bg-slate-950/20">
@@ -352,9 +360,8 @@ export const LiveOrders: React.FC = () => {
 
         <button
           onClick={() => setActiveTab('ready')}
-          className={`flex-1 py-2.5 px-3 rounded-xl text-xs font-bold transition flex items-center justify-center space-x-2 ${
-            activeTab === 'ready' ? 'bg-amber-500 text-slate-950 shadow-md' : 'text-slate-400 hover:text-white'
-          }`}
+          className={`flex-1 py-2.5 px-3 rounded-xl text-xs font-bold transition flex items-center justify-center space-x-2 ${activeTab === 'ready' ? 'bg-amber-500 text-slate-950 shadow-md' : 'text-slate-400 hover:text-white'
+            }`}
         >
           <span>{selectedChannel === 'offline' ? 'SERVED TO TABLE' : selectedChannel === 'online' ? 'READY PICKUP' : 'READY / SERVED'}</span>
           <span className="px-1.5 py-0.5 rounded-full text-[10px] bg-slate-950/20">
@@ -371,15 +378,15 @@ export const LiveOrders: React.FC = () => {
             {selectedChannel === 'online'
               ? 'No Online Website Orders'
               : selectedChannel === 'offline'
-              ? 'No Offline / QR Code Orders'
-              : 'No Orders in this Section'}
+                ? 'No Offline / QR Code Orders'
+                : 'No Orders in this Section'}
           </h3>
           <p className="text-xs text-slate-400 mt-1">
             {selectedChannel === 'online'
               ? 'Online orders from website delivery and takeaway will appear here in real-time.'
               : selectedChannel === 'offline'
-              ? 'Dine-in orders placed by customers scanning table QR codes will appear here in real-time.'
-              : 'All live kitchen orders in this category have been processed successfully.'}
+                ? 'Dine-in orders placed by customers scanning table QR codes will appear here in real-time.'
+                : 'All live kitchen orders in this category have been processed successfully.'}
           </p>
         </div>
       ) : (
@@ -392,19 +399,24 @@ export const LiveOrders: React.FC = () => {
             const isOutForDelivery = status === 'out_for_delivery' || status === 'picked_up' || status === 'picked up';
             const isDelivered = status === 'delivered' || status === 'completed';
             const isQr = isOfflineQrOrder(order);
+            const isSelfDeliveryOrder =
+              Boolean((order as any).isSelfDelivery) ||
+              Boolean((order as any).isVendorSelfDelivery) ||
+              (order as any).deliveryType === 'self_delivery' ||
+              restaurant?.deliveryMode === 'self_delivery' ||
+              Boolean(restaurant?.isSelfDelivery);
 
             return (
               <div
                 key={order._id}
-                className={`glass-panel p-5 rounded-3xl border transition flex flex-col justify-between ${
-                  isPlaced
+                className={`glass-panel p-5 rounded-3xl border transition flex flex-col justify-between ${isPlaced
                     ? isQr
                       ? 'border-purple-500/50 ring-1 ring-purple-500/30'
                       : 'border-amber-500/40 ring-1 ring-amber-500/20'
                     : isQr
-                    ? 'border-purple-900/40'
-                    : 'border-slate-800'
-                }`}
+                      ? 'border-purple-900/40'
+                      : 'border-slate-800'
+                  }`}
               >
                 <div>
                   {/* CHANNEL SOURCE BANNER */}
@@ -435,7 +447,11 @@ export const LiveOrders: React.FC = () => {
                         </div>
                       </div>
                       <span className="px-2.5 py-1 rounded-lg bg-cyan-950 text-xs font-mono font-bold text-cyan-200 border border-cyan-500/40">
-                        {order.isSelfPickup || order.deliveryType === 'pickup' ? '🛍️ Self Pickup' : '🛵 Doorstep Delivery'}
+                        {order.isSelfPickup || order.deliveryType === 'pickup'
+                          ? '🛍️ Self Pickup'
+                          : isSelfDeliveryOrder
+                            ? '🚚 Store Self-Delivery'
+                            : '🛵 Platform Delivery'}
                       </span>
                     </div>
                   )}
@@ -449,28 +465,27 @@ export const LiveOrders: React.FC = () => {
 
                     <div className="text-right">
                       <span
-                        className={`px-3 py-1 rounded-full text-[10px] font-extrabold uppercase ${
-                          isPlaced
+                        className={`px-3 py-1 rounded-full text-[10px] font-extrabold uppercase ${isPlaced
                             ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40 animate-pulse'
                             : isPreparing
-                            ? 'bg-blue-500/20 text-blue-300 border border-blue-500/40'
-                            : isReady
-                            ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
-                            : isOutForDelivery
-                            ? 'bg-purple-500/20 text-purple-300 border border-purple-500/40'
-                            : 'bg-slate-700/50 text-slate-300 border border-slate-600'
-                        }`}
+                              ? 'bg-blue-500/20 text-blue-300 border border-blue-500/40'
+                              : isReady
+                                ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
+                                : isOutForDelivery
+                                  ? 'bg-purple-500/20 text-purple-300 border border-purple-500/40'
+                                  : 'bg-slate-700/50 text-slate-300 border border-slate-600'
+                          }`}
                       >
                         {isQr ? (
                           isPlaced
                             ? '🔔 NEW TABLE ORDER'
                             : isPreparing
-                            ? '🔥 COOKING FOR TABLE'
-                            : isReady
-                            ? '🍽️ SERVED TO TABLE (NO OTP)'
-                            : isDelivered
-                            ? '✅ TABLE COMPLETED'
-                            : order.orderStatus
+                              ? '🔥 COOKING FOR TABLE'
+                              : isReady
+                                ? '🍽️ SERVED TO TABLE (NO OTP)'
+                                : isDelivered
+                                  ? '✅ TABLE COMPLETED'
+                                  : order.orderStatus
                         ) : (
                           order.orderStatus
                         )}
@@ -558,11 +573,10 @@ export const LiveOrders: React.FC = () => {
                   {isPreparing && (
                     <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 w-full">
                       <div className="flex items-center gap-2 flex-wrap">
-                        <div className={`text-xs font-bold flex items-center space-x-2 px-3.5 py-2 rounded-xl border ${
-                          isQr
+                        <div className={`text-xs font-bold flex items-center space-x-2 px-3.5 py-2 rounded-xl border ${isQr
                             ? 'text-purple-300 bg-purple-500/10 border-purple-500/30'
                             : 'text-amber-400 bg-amber-500/10 border-amber-500/30'
-                        }`}>
+                          }`}>
                           <Flame className="w-4 h-4 animate-bounce shrink-0" />
                           <span>{isQr ? '🔥 Kitchen Cooking for Table' : '🔥 Chef Preparing Food'}</span>
                         </div>
@@ -612,8 +626,27 @@ export const LiveOrders: React.FC = () => {
                             <span>Complete Table Order (Paid &amp; Cleared)</span>
                           </button>
                         </div>
+                      ) : isSelfDeliveryOrder ? (
+                        /* ONLINE SELF-DELIVERY ORDERS: STORE FLEET DISPATCH - NO EXTERNAL OTP NEEDED */
+                        <div className="flex flex-col sm:flex-row items-end sm:items-center justify-between gap-3 w-full bg-emerald-950/40 p-3 rounded-2xl border border-emerald-500/30">
+                          <div className="text-xs font-bold text-emerald-300 flex items-center space-x-2">
+                            <Truck className="w-4 h-4 text-emerald-400 shrink-0" />
+                            <div>
+                              <span>🚚 Store Self-Delivery Fleet</span>
+                              <span className="text-[10px] text-emerald-400 block font-normal">Dispatched by In-House Store Riders • No External OTP</span>
+                            </div>
+                          </div>
+
+                          <button
+                            onClick={() => handleTransitionStatus(order._id, 'out_for_delivery')}
+                            className="px-4 py-2.5 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-extrabold text-xs rounded-xl shadow-lg shadow-emerald-500/25 transition flex items-center space-x-1.5 cursor-pointer shrink-0"
+                          >
+                            <Truck className="w-4 h-4" />
+                            <span>Handover to Store Rider / Out for Delivery</span>
+                          </button>
+                        </div>
                       ) : (
-                        /* ONLINE WEBSITE ORDERS: RIDER ASSIGNED & OTP VERIFICATION */
+                        /* ONLINE PLATFORM DELIVERY ORDERS: RIDER ASSIGNED & OTP VERIFICATION */
                         <>
                           <div className="text-xs font-bold text-amber-400 flex items-center space-x-1.5 bg-amber-500/10 px-3 py-1.5 rounded-xl border border-amber-500/30">
                             <Clock className="w-3.5 h-3.5 text-amber-400" />
@@ -690,6 +723,24 @@ export const LiveOrders: React.FC = () => {
                             className="px-4 py-2 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs rounded-xl shadow-md transition cursor-pointer"
                           >
                             Complete Table Order
+                          </button>
+                        </div>
+                      ) : isSelfDeliveryOrder ? (
+                        <div className="flex flex-col sm:flex-row items-end sm:items-center justify-between gap-3 w-full bg-emerald-950/40 p-3 rounded-2xl border border-emerald-500/30">
+                          <div className="text-xs font-bold text-emerald-300 flex items-center space-x-2">
+                            <Clock className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                            <div>
+                              <span>🚚 Store Rider on Way to Customer</span>
+                              <span className="text-[10px] text-emerald-400 block font-normal">Delivering via In-House Store Fleet</span>
+                            </div>
+                          </div>
+
+                          <button
+                            onClick={() => handleTransitionStatus(order._id, 'delivered')}
+                            className="px-4 py-2.5 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-extrabold text-xs rounded-xl shadow-lg shadow-emerald-500/25 transition flex items-center space-x-1.5 cursor-pointer shrink-0"
+                          >
+                            <CheckCircle2 className="w-4 h-4" />
+                            <span>Mark Order Delivered</span>
                           </button>
                         </div>
                       ) : (

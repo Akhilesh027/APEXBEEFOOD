@@ -38,7 +38,10 @@ export const FinanceDashboard: React.FC = () => {
       }
 
       if (setRes.data?.settlements) {
-        setSettlements(setRes.data.settlements);
+        const vendorOnly = (setRes.data.settlements || []).filter(
+          (s: any) => !s.settlementType || ['vendor', 'restaurant', 'seller'].includes(s.settlementType)
+        );
+        setSettlements(vendorOnly);
       }
     } catch (err) {
       console.error('Failed to load finance data:', err);
@@ -226,7 +229,7 @@ export const FinanceDashboard: React.FC = () => {
                     <td className="p-4 text-slate-400">
                       {new Date(item.createdAt).toLocaleDateString()}
                     </td>
-                    <td className="p-4 text-slate-300 capitalize">{item.settlementType || 'Vendor Payout'}</td>
+                    <td className="p-4 text-slate-300 capitalize">{item.settlementType === 'vendor' ? 'Restaurant Payout' : (item.settlementType || 'Restaurant Payout')}</td>
                     <td className="p-4 font-mono font-bold text-emerald-400">₹{item.amount}</td>
                     <td className="p-4 text-center">
                       <span
@@ -421,7 +424,13 @@ export const FinanceDashboard: React.FC = () => {
                     <td className="p-4 text-right font-mono font-bold text-emerald-400">
                       <div className="flex items-center justify-end space-x-1">
                         <ArrowUpRight className="w-3 h-3" />
-                        <span>₹{order.vendorEarning?.toLocaleString('en-IN')}</span>
+                        <span>
+                          ₹{(
+                            order.vendorEarning !== undefined && order.vendorEarning < (order.totalAmount || 0)
+                              ? order.vendorEarning
+                              : Math.max(0, (order.totalAmount || 0) - (order.platformFee || 0))
+                          )?.toLocaleString('en-IN')}
+                        </span>
                       </div>
                     </td>
                     <td className="p-4 text-center">
@@ -455,7 +464,12 @@ export const FinanceDashboard: React.FC = () => {
                 <div>
                   <span className="text-slate-400 mr-2">Your Net Earnings:</span>
                   <span className="font-mono font-extrabold text-emerald-400">
-                    ₹{orderBreakdown.reduce((s: number, o: any) => s + (o.vendorEarning || 0), 0).toLocaleString('en-IN')}
+                    ₹{orderBreakdown.reduce((s: number, o: any) => {
+                      const net = o.vendorEarning !== undefined && o.vendorEarning < (o.totalAmount || 0)
+                        ? o.vendorEarning
+                        : Math.max(0, (o.totalAmount || 0) - (o.platformFee || 0));
+                      return s + net;
+                    }, 0).toLocaleString('en-IN')}
                   </span>
                 </div>
               </div>

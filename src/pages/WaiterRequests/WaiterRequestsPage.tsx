@@ -25,6 +25,7 @@ import {
   ICustomerPlacedOrder,
 } from '../../services/qrMenuStorage';
 import { foodService } from '../../services/foodService';
+import { useFoodAuthStore } from '../../store/useFoodAuthStore';
 import {
   announceOrderVoice,
   announceWaiterCallVoice,
@@ -34,6 +35,8 @@ import {
 const WAITERS = ['Rahul S. (Floor Lead)', 'Priya M.', 'Kiran K.', 'Arjun V.'];
 
 export const WaiterRequestsPage: React.FC = () => {
+  const restaurant = useFoodAuthStore((state) => state.restaurant);
+
   // Tabs: 'ALL' | 'ORDERS' | 'CALLS'
   const [activeTab, setActiveTab] = useState<'ALL' | 'ORDERS' | 'CALLS'>('ALL');
   const [statusFilter, setStatusFilter] = useState<'ALL' | 'PENDING' | 'IN_PROGRESS' | 'RESOLVED'>('ALL');
@@ -51,12 +54,12 @@ export const WaiterRequestsPage: React.FC = () => {
   const loadData = async (silent = false) => {
     if (!silent) setLoading(true);
     try {
-      // 1. Waiter calls
-      const calls = qrMenuStorage.getWaiterCalls();
+      // 1. Waiter calls - scoped to active restaurant
+      const calls = qrMenuStorage.getWaiterCalls(restaurant?._id);
       setWaiterCalls(calls);
 
-      // 2. Customer table orders
-      const localOrders = qrMenuStorage.getCustomerOrders();
+      // 2. Customer table orders - scoped to active restaurant
+      const localOrders = qrMenuStorage.getCustomerOrders(restaurant?._id);
       setCustomerOrders(localOrders);
 
       // Also try to sync from backend live feed if available
@@ -75,16 +78,10 @@ export const WaiterRequestsPage: React.FC = () => {
 
   // Initial load and periodic 5s polling
   useEffect(() => {
-    // Purge any lingering mock sample calls from localStorage
+    // Purge any lingering legacy unscoped keys
     try {
-      const stored = localStorage.getItem('apexbee_waiter_requests_v2');
-      if (stored) {
-        const parsed = JSON.parse(stored);
-        if (Array.isArray(parsed)) {
-          const cleaned = parsed.filter((c: any) => c.id !== 'sample-call-1');
-          localStorage.setItem('apexbee_waiter_requests_v2', JSON.stringify(cleaned));
-        }
-      }
+      localStorage.removeItem('apexbee_waiter_requests_v2');
+      localStorage.removeItem('apexbee_customer_orders_v2');
     } catch (e) {}
 
     loadData();
@@ -94,13 +91,18 @@ export const WaiterRequestsPage: React.FC = () => {
     }, 5000);
 
     return () => clearInterval(interval);
-  }, []);
+  }, [restaurant?._id]);
 
   // Listen for real-time events dispatched from customer menu ordering in other tabs
   useEffect(() => {
     const handleNewOrder = (e: any) => {
       const order: ICustomerPlacedOrder = e.detail;
       if (!order) return;
+
+      // Filter out notifications intended for other restaurants
+      if (order.restaurantId && restaurant?._id && String(order.restaurantId) !== String(restaurant._id)) {
+        return;
+      }
 
       loadData(true);
 
@@ -114,6 +116,11 @@ export const WaiterRequestsPage: React.FC = () => {
     const handleWaiterCall = (e: any) => {
       const call: IWaiterCall = e.detail;
       if (!call) return;
+
+      // Filter out notifications intended for other restaurants
+      if (call.restaurantId && restaurant?._id && String(call.restaurantId) !== String(restaurant._id)) {
+        return;
+      }
 
       loadData(true);
 
@@ -130,27 +137,18 @@ export const WaiterRequestsPage: React.FC = () => {
       window.removeEventListener('apexbee:new_order', handleNewOrder);
       window.removeEventListener('apexbee:waiter_call', handleWaiterCall);
     };
-  }, [voiceEnabled, lastAnnouncedId]);
+  }, [voiceEnabled, lastAnnouncedId, restaurant?._id]);
 
   // Handle Waiter Call Status Update
   const handleUpdateCallStatus = (id: string, newStatus: IWaiterCall['status'], waiter?: string) => {
-    const updated = qrMenuStorage.updateWaiterCallStatus(id, newStatus, waiter);
+    const updated = qrMenuStorage.updateWaiterCallStatus(id, newStatus, waiter, restaurant?._id);
     setWaiterCalls(updated);
   };
 
   // Handle Order Status Update
   const handleUpdateOrderStatus = (orderId: string, newStatus: ICustomerPlacedOrder['status']) => {
-    const current = qrMenuStorage.getCustomerOrders();
-    const updated = current.map((ord) => {
-      if (ord.orderId === orderId) {
-        return { ...ord, status: newStatus };
-      }
-      return ord;
-    });
-    try {
-      localStorage.setItem('apexbee_customer_orders_v2', JSON.stringify(updated));
-      setCustomerOrders(updated);
-    } catch (e) {}
+    const updated = qrMenuStorage.updateCustomerOrderStatus(orderId, newStatus, restaurant?._id);
+    setCustomerOrders(updated);
   };
 
   // Test Buttons for User to hear speech

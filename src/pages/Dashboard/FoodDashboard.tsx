@@ -19,13 +19,33 @@ import {
   Copy,
   Check,
   ExternalLink,
+  Sparkles,
+  Calendar,
+  Tv,
+  Bell,
 } from 'lucide-react';
 import { foodService } from '../../services/foodService';
 import { useFoodAuthStore } from '../../store/useFoodAuthStore';
 import { IFoodOrder } from '../../types/foodPartner';
+import { getBusinessCapabilities } from '../../utils/businessCapabilities';
+import { bakeryOrderStorage, ICakeAdvanceOrder } from '../../services/bakeryOrderStorage';
+import { fastFoodTokenStorage, IFastFoodToken } from '../../services/fastFoodTokenStorage';
+import {
+  tiffinMealsStorage,
+  IDailyCurryBoard,
+  TiffinMealSlot,
+  getSlotDisplayMeta,
+} from '../../services/tiffinMealsStorage';
+import { DailyCurryBoardModal } from '../../components/common/DailyCurryBoardModal';
+import { curryPointStorage, IHandiPotItem } from '../../services/curryPointStorage';
+import { LiveHandiBoardModal } from '../../components/common/LiveHandiBoardModal';
 
 export const FoodDashboard: React.FC = () => {
   const { restaurant, setRestaurantData } = useFoodAuthStore();
+  const caps = React.useMemo(
+    () => getBusinessCapabilities(restaurant?.businessType, restaurant?.diningEnabled, restaurant?.cuisines),
+    [restaurant?.businessType, restaurant?.diningEnabled, restaurant?.cuisines]
+  );
 
   const [loading, setLoading] = useState(true);
   const [updatingStatus, setUpdatingStatus] = useState(false);
@@ -37,6 +57,19 @@ export const FoodDashboard: React.FC = () => {
   const [acceptingOrderId, setAcceptingOrderId] = useState<string | null>(null);
   const [pendingInvoices, setPendingInvoices] = useState<any[]>([]);
   const [copiedInvoiceId, setCopiedInvoiceId] = useState<string | null>(null);
+  const [cakeOrders, setCakeOrders] = useState<ICakeAdvanceOrder[]>([]);
+  const [tokens, setTokens] = useState<IFastFoodToken[]>([]);
+  const [dailyBoard, setDailyBoard] = useState<IDailyCurryBoard>(() =>
+    tiffinMealsStorage.getDailyBoard(restaurant?._id)
+  );
+  const [activeSlot, setActiveSlot] = useState<TiffinMealSlot>(() =>
+    tiffinMealsStorage.getActiveSlot(restaurant?._id)
+  );
+  const [isDailyBoardModalOpen, setIsDailyBoardModalOpen] = useState(false);
+  const [curryPots, setCurryPots] = useState<IHandiPotItem[]>(() =>
+    curryPointStorage.getPots(restaurant?._id)
+  );
+  const [isHandiBoardModalOpen, setIsHandiBoardModalOpen] = useState(false);
 
   const handleToggleAccepting = async () => {
     if (!restaurant) return;
@@ -81,9 +114,28 @@ export const FoodDashboard: React.FC = () => {
         setEarningsData(earningsResult.value.data);
       }
 
-      if (invoicesResult.status === 'fulfilled' && invoicesResult.value?.data?.data) {
+        if (invoicesResult.status === 'fulfilled' && invoicesResult.value?.data?.data) {
         const invs = Array.isArray(invoicesResult.value.data.data) ? invoicesResult.value.data.data : [];
         setPendingInvoices(invs.filter((inv: any) => inv.status === 'pending'));
+      }
+
+      if (caps.isBakery) {
+        const cakes = bakeryOrderStorage.getCakeOrders(restaurant?._id);
+        setCakeOrders(cakes);
+      }
+
+      if (caps.canManageTokens || caps.isFastFood || caps.isTiffinsMeals || caps.isCurryPoint) {
+        const toks = fastFoodTokenStorage.getTokens(restaurant?._id);
+        setTokens(toks);
+      }
+
+      if (caps.isCurryPoint || caps.canManageHandiPots) {
+        setCurryPots(curryPointStorage.getPots(restaurant?._id));
+      }
+
+      if (caps.isTiffinsMeals || caps.canManageDailyCurries) {
+        setDailyBoard(tiffinMealsStorage.getDailyBoard(restaurant?._id));
+        setActiveSlot(tiffinMealsStorage.getActiveSlot(restaurant?._id));
       }
     } catch (err) {
       // Gracefully handle network glitches during background polling
@@ -94,9 +146,31 @@ export const FoodDashboard: React.FC = () => {
 
   useEffect(() => {
     fetchDashboardData();
+
+    const handleBoardUpdate = () => {
+      setDailyBoard(tiffinMealsStorage.getDailyBoard(restaurant?._id));
+    };
+    const handleSlotUpdate = (e: any) => {
+      if (e.detail?.slot) {
+        setActiveSlot(e.detail.slot);
+      }
+    };
+    const handlePotsUpdate = () => {
+      setCurryPots(curryPointStorage.getPots(restaurant?._id));
+    };
+
+    window.addEventListener('apexbee:daily_board_updated', handleBoardUpdate);
+    window.addEventListener('apexbee:meal_slot_changed', handleSlotUpdate);
+    window.addEventListener('apexbee:curry_pots_updated', handlePotsUpdate);
+
     const interval = setInterval(fetchDashboardData, 12000);
-    return () => clearInterval(interval);
-  }, []);
+    return () => {
+      window.removeEventListener('apexbee:daily_board_updated', handleBoardUpdate);
+      window.removeEventListener('apexbee:meal_slot_changed', handleSlotUpdate);
+      window.removeEventListener('apexbee:curry_pots_updated', handlePotsUpdate);
+      clearInterval(interval);
+    };
+  }, [restaurant?._id]);
 
   const handleAcceptOrder = async (orderId: string) => {
     try {
@@ -123,11 +197,18 @@ export const FoodDashboard: React.FC = () => {
       {/* TOP TITLE BAR */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-extrabold font-heading text-slate-100 flex items-center space-x-2">
-            <span>Operational Dashboard</span>
-          </h1>
-          <p className="text-xs text-slate-400 mt-0.5">
-            Live kitchen operations, incoming orders, menu status & real-time sales
+          <div className="flex items-center space-x-2">
+            <span className={`p-1.5 rounded-lg text-sm ${caps.isBakery ? 'bg-pink-500/15 border border-pink-500/30' : 'bg-amber-500/15 border border-amber-500/30'}`}>
+              {caps.formatBadgeIcon}
+            </span>
+            <h1 className="text-2xl font-extrabold font-heading text-slate-100 flex items-center space-x-2">
+              <span>{caps.isBakery ? 'Bakery Operations Dashboard' : 'Operational Dashboard'}</span>
+            </h1>
+          </div>
+          <p className="text-xs text-slate-400 mt-1">
+            {caps.isBakery
+              ? 'Live counter sales, custom cake pre-orders, fresh bakes & daily revenue'
+              : 'Live kitchen operations, incoming orders, menu status & real-time sales'}
           </p>
         </div>
 
@@ -135,7 +216,9 @@ export const FoodDashboard: React.FC = () => {
           {/* ON / OFF TOGGLE SWITCH BUTTON */}
           <div className="flex items-center space-x-3 bg-slate-900/90 border border-slate-800 p-2 rounded-2xl shadow-md">
             <div className="flex flex-col">
-              <span className="text-[10px] text-slate-400 uppercase font-extrabold tracking-wider">Outlet Status</span>
+              <span className="text-[10px] text-slate-400 uppercase font-extrabold tracking-wider">
+                {caps.isBakery ? 'Bakery Status' : 'Outlet Status'}
+              </span>
               <span className={`text-xs font-black tracking-wide ${
                 restaurant?.acceptingOrders ? 'text-emerald-400' : 'text-rose-400'
               }`}>
@@ -170,9 +253,9 @@ export const FoodDashboard: React.FC = () => {
 
           <Link
             to="/orders/live"
-            className="px-4 py-2.5 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold rounded-2xl text-xs transition shadow-lg shadow-amber-500/20 flex items-center space-x-2"
+            className="px-4 py-2.5 font-bold rounded-2xl text-xs transition flex items-center space-x-2 bg-amber-500 hover:bg-amber-400 text-slate-950 shadow-lg shadow-amber-500/20"
           >
-            <span>Live Kitchen Feed</span>
+            <span>{caps.isBakery ? 'Live Counter & Cake Feed' : 'Live Kitchen Feed'}</span>
             <ChevronRight className="w-4 h-4" />
           </Link>
         </div>
@@ -318,7 +401,9 @@ export const FoodDashboard: React.FC = () => {
               return ot === 'DINE_IN' || ot === 'OFFLINE' || ot === 'QR_CODE' || Boolean(o.tableNumber) || n.includes('table');
             }).length}
           </div>
-          <div className="text-[10px] text-purple-400/80 mt-1 font-semibold">Dine-In Table Scans &rarr;</div>
+          <div className="text-[10px] text-purple-400/80 mt-1 font-semibold">
+            {caps.isBakery ? 'Counter QR & Showcase Scans →' : 'Dine-In Table Scans →'}
+          </div>
         </Link>
 
         <div className="glass-panel p-4 rounded-2xl border border-slate-800">
@@ -332,6 +417,438 @@ export const FoodDashboard: React.FC = () => {
           <div className="text-[10px] text-slate-400 mt-1">Awaiting rider</div>
         </div>
       </div>
+
+      {/* BAKERY ONLY: ADVANCE CAKE ORDERS PIPELINE WIDGET */}
+      {caps.isBakery && (
+        <div className="glass-panel p-5 rounded-3xl border border-amber-500/30 bg-gradient-to-r from-amber-950/20 via-slate-900 to-slate-900 space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="flex items-center space-x-2.5">
+              <span className="p-2 rounded-xl bg-amber-500/20 text-amber-400 text-lg border border-amber-500/30">
+                🎂
+              </span>
+              <div>
+                <div className="flex items-center space-x-2">
+                  <h2 className="text-base md:text-lg font-extrabold font-heading text-slate-100">
+                    Advance Celebration Cake Orders
+                  </h2>
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                    {cakeOrders.filter((c) => c.status !== 'DELIVERED' && c.status !== 'CANCELLED').length} Active
+                  </span>
+                </div>
+                <p className="text-xs text-slate-400">
+                  Custom inscriptions, photo cakes, scheduled pickup time slots &amp; chiller status.
+                </p>
+              </div>
+            </div>
+
+            <Link
+              to="/advance-orders"
+              className="px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-extrabold transition shadow-md shadow-amber-500/20 flex items-center space-x-1.5 self-start sm:self-auto"
+            >
+              <Sparkles className="w-3.5 h-3.5" />
+              <span>Open Cake Pipeline</span>
+              <ChevronRight className="w-4 h-4" />
+            </Link>
+          </div>
+
+          {cakeOrders.filter((c) => c.status !== 'DELIVERED' && c.status !== 'CANCELLED').length === 0 ? (
+            <div className="p-6 text-center bg-slate-950/50 rounded-2xl border border-slate-800/80">
+              <div className="text-xs text-slate-400 font-medium">No advance celebration cakes scheduled yet.</div>
+              <div className="text-[11px] text-slate-500 mt-1">
+                Orders booked at the Bakery POS terminal or entered in the Cake Pipeline will appear here with message inscriptions and pickup times.
+              </div>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 pt-1">
+              {cakeOrders
+                .filter((c) => c.status !== 'DELIVERED' && c.status !== 'CANCELLED')
+                .slice(0, 3)
+                .map((cake) => (
+                  <div
+                    key={cake.id}
+                    className="p-3.5 rounded-2xl bg-slate-950/80 border border-slate-800 hover:border-amber-500/40 transition flex flex-col justify-between space-y-3"
+                  >
+                    <div className="space-y-1.5">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[11px] font-mono font-bold text-amber-400">#{cake.orderNumber}</span>
+                        <span
+                          className={`px-2 py-0.5 rounded-full text-[9px] font-extrabold uppercase ${
+                            cake.status === 'READY_IN_CHILLER'
+                              ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/30'
+                              : cake.status === 'BAKING'
+                              ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
+                              : 'bg-slate-800 text-slate-300'
+                          }`}
+                        >
+                          {cake.status.replace(/_/g, ' ')}
+                        </span>
+                      </div>
+
+                      <div className="font-bold text-sm text-slate-100 line-clamp-1">{cake.cakeName}</div>
+                      <div className="text-xs text-slate-400 flex items-center space-x-2">
+                        <span>{cake.weight}</span>
+                        <span>•</span>
+                        <span className={cake.foodType === 'EGGLESS' ? 'text-emerald-400' : 'text-amber-400'}>
+                          {cake.foodType === 'EGGLESS' ? '🌿 Eggless' : '🥚 Contains Egg'}
+                        </span>
+                      </div>
+
+                      {cake.messageOnCake && (
+                        <div className="p-1.5 rounded-lg bg-amber-500/10 border border-amber-500/20 text-[11px] text-amber-200 italic line-clamp-1">
+                          "{cake.messageOnCake}"
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="pt-2 border-t border-slate-900 flex items-center justify-between text-xs">
+                      <div className="flex items-center space-x-1 text-slate-400 text-[11px]">
+                        <Clock className="w-3.5 h-3.5 text-amber-400" />
+                        <span>
+                          {cake.pickupDate} ({cake.pickupTimeSlot})
+                        </span>
+                      </div>
+                      <div className="font-bold text-slate-200">
+                        ₹{cake.totalAmount}
+                        {cake.balanceDue > 0 && (
+                          <span className="text-rose-400 text-[10px] ml-1">(₹{cake.balanceDue} due)</span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* TIFFINS & MEALS ONLY: TODAY'S DAILY CURRIES & SESSION SWITCHER */}
+      {(caps.isTiffinsMeals || caps.canManageDailyCurries) && (
+        <div className="glass-panel p-5 rounded-3xl border border-amber-500/30 bg-gradient-to-r from-amber-950/20 via-slate-900 to-slate-900 space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="flex items-center space-x-2.5">
+              <span className="p-2 rounded-xl bg-amber-500 text-slate-950 text-xl font-black shadow-md shadow-amber-500/20">
+                🍛
+              </span>
+              <div>
+                <div className="flex items-center space-x-2">
+                  <h2 className="text-base md:text-lg font-extrabold font-heading text-slate-100">
+                    Today's Daily Curries &amp; South Indian Meals Board
+                  </h2>
+                  <span
+                    className={`px-2 py-0.5 rounded-full text-[10px] font-black border ${
+                      dailyBoard.isMealsAvailable
+                        ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30'
+                        : 'bg-rose-500/20 text-rose-300 border-rose-500/30'
+                    }`}
+                  >
+                    {dailyBoard.isMealsAvailable ? '🟢 MEALS SERVING HOT' : '🔴 MEALS CLOSED'}
+                  </span>
+                </div>
+                <p className="text-xs text-slate-400">
+                  Daily changing Dal/Pappu, vegetable curries, sweets &amp; active meal slot for POS and customer QR standees.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center space-x-2 self-start sm:self-auto">
+              <button
+                onClick={() => setIsDailyBoardModalOpen(true)}
+                className="px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-black transition shadow-md shadow-amber-500/20 flex items-center space-x-1.5 cursor-pointer"
+              >
+                <span>✏️ Edit Today's Curries</span>
+              </button>
+              <Link
+                to="/pos"
+                className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold transition flex items-center space-x-1.5"
+              >
+                <span>🎫 Tiffin POS</span>
+                <ChevronRight className="w-3.5 h-3.5" />
+              </Link>
+            </div>
+          </div>
+
+          {/* MEAL SLOT / DAYPARTING SELECTOR */}
+          <div className="p-3 rounded-2xl bg-slate-950/80 border border-slate-800 flex flex-col md:flex-row md:items-center justify-between gap-3">
+            <div className="flex items-center space-x-2 text-xs">
+              <Clock className="w-4 h-4 text-amber-400" />
+              <span className="text-slate-300 font-bold">Active Meal Slot:</span>
+              <span className={`px-2.5 py-0.5 rounded-full text-[11px] font-bold border ${getSlotDisplayMeta(activeSlot).tagColor}`}>
+                {getSlotDisplayMeta(activeSlot).shortLabel}
+              </span>
+            </div>
+
+            <div className="flex items-center space-x-1.5 overflow-x-auto">
+              {(['MORNING_TIFFINS', 'AFTERNOON_MEALS', 'EVENING_TIFFINS', 'ALL_DAY'] as TiffinMealSlot[]).map((slot) => {
+                const meta = getSlotDisplayMeta(slot);
+                const isActive = activeSlot === slot;
+                return (
+                  <button
+                    key={slot}
+                    onClick={() => {
+                      tiffinMealsStorage.setActiveSlot(slot, restaurant?._id);
+                      setActiveSlot(slot);
+                    }}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-bold transition whitespace-nowrap ${
+                      isActive
+                        ? 'bg-amber-500 text-slate-950 shadow-md shadow-amber-500/20'
+                        : 'bg-slate-900 border border-slate-800 text-slate-400 hover:text-slate-200'
+                    }`}
+                  >
+                    <span>{meta.shortLabel}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* CURRIES & SPECIALS SHOWCASE GRID */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 pt-1">
+            <div className="p-3 rounded-2xl bg-slate-950/60 border border-slate-800">
+              <div className="text-[10px] font-bold text-amber-400 uppercase tracking-wider mb-1">
+                🥘 Dal / Pappu
+              </div>
+              <div className="font-bold text-xs text-slate-100 line-clamp-1">{dailyBoard.dalPappu || 'Daily Dal'}</div>
+              <div className="text-[10px] text-slate-500 mt-0.5">Freshly cooked with ghee tadka</div>
+            </div>
+
+            <div className="p-3 rounded-2xl bg-slate-950/60 border border-slate-800">
+              <div className="text-[10px] font-bold text-amber-400 uppercase tracking-wider mb-1">
+                🥦 Veg Curry 1 (Fry)
+              </div>
+              <div className="font-bold text-xs text-slate-100 line-clamp-1">{dailyBoard.vegCurry1 || 'Veg Fry'}</div>
+              <div className="text-[10px] text-slate-500 mt-0.5">Crispy dry fry / poriyal</div>
+            </div>
+
+            <div className="p-3 rounded-2xl bg-slate-950/60 border border-slate-800">
+              <div className="text-[10px] font-bold text-amber-400 uppercase tracking-wider mb-1">
+                🍲 Veg Curry 2 (Kurma)
+              </div>
+              <div className="font-bold text-xs text-slate-100 line-clamp-1">{dailyBoard.vegCurry2 || 'Veg Kurma'}</div>
+              <div className="text-[10px] text-slate-500 mt-0.5">Rich gravy accompaniment</div>
+            </div>
+
+            <div className="p-3 rounded-2xl bg-slate-950/60 border border-slate-800">
+              <div className="text-[10px] font-bold text-amber-400 uppercase tracking-wider mb-1">
+                🍯 Sweet &amp; Pachadi
+              </div>
+              <div className="font-bold text-xs text-slate-100 line-clamp-1">
+                {dailyBoard.specialSweet || 'Daily Sweet'}
+              </div>
+              <div className="text-[10px] text-slate-500 mt-0.5 truncate">{dailyBoard.specialChutney || 'Fresh Chutney'}</div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* CURRY POINT ONLY: LIVE HANDI / POT COUNTER WIDGET */}
+      {caps.isCurryPoint && (
+        <div className="glass-panel p-5 rounded-3xl border border-amber-500/30 bg-gradient-to-r from-amber-950/20 via-slate-900 to-slate-900 space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="flex items-center space-x-2.5">
+              <span className="p-2 rounded-xl bg-amber-500 text-slate-950 text-xl font-black shadow-md shadow-amber-500/20">
+                🥘
+              </span>
+              <div>
+                <div className="flex items-center space-x-2">
+                  <h2 className="text-base md:text-lg font-extrabold font-heading text-slate-100">
+                    Live Handi / Pot Counter Status
+                  </h2>
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-amber-500 text-slate-950">
+                    {curryPots.filter((p) => p.potStatus !== 'FINISHED').length} OF {curryPots.length} POTS READY
+                  </span>
+                </div>
+                <p className="text-xs text-slate-400">
+                  Real-time stock of heated steel handis on the counter: Full, Low, or Sold Out.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center space-x-2 self-start sm:self-auto">
+              <button
+                onClick={() => setIsHandiBoardModalOpen(true)}
+                className="px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-black transition shadow-md shadow-amber-500/20 flex items-center space-x-1.5 cursor-pointer"
+              >
+                <span>✏️ Manage Handi Pots</span>
+              </button>
+              <Link
+                to="/pos"
+                className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold transition flex items-center space-x-1.5"
+              >
+                <span>🎫 Curry Parcel POS</span>
+                <ChevronRight className="w-3.5 h-3.5" />
+              </Link>
+            </div>
+          </div>
+
+          {/* POTS STATUS COUNTER CLUSTER */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 pt-1">
+            <div className="p-3 rounded-2xl bg-slate-950/80 border border-slate-800">
+              <div className="flex items-center justify-between text-xs">
+                <span className="font-bold text-slate-300">Total Counter Pots</span>
+                <span className="font-mono font-bold text-amber-400 text-base">{curryPots.length}</span>
+              </div>
+              <div className="text-[10px] text-slate-500 mt-1">Arranged in heated bay</div>
+            </div>
+
+            <div className="p-3 rounded-2xl bg-emerald-950/20 border border-emerald-500/30">
+              <div className="flex items-center justify-between text-xs">
+                <span className="font-bold text-emerald-400">🟢 Full Pots</span>
+                <span className="font-mono font-black text-emerald-300 text-base">
+                  {curryPots.filter((p) => p.potStatus === 'FULL_POT').length}
+                </span>
+              </div>
+              <div className="text-[10px] text-emerald-400/70 mt-1">Ready for packing</div>
+            </div>
+
+            <div className="p-3 rounded-2xl bg-amber-950/20 border border-amber-500/30">
+              <div className="flex items-center justify-between text-xs">
+                <span className="font-bold text-amber-400">🟡 Half Low Remaining</span>
+                <span className="font-mono font-black text-amber-300 text-base">
+                  {curryPots.filter((p) => p.potStatus === 'HALF_POT').length}
+                </span>
+              </div>
+              <div className="text-[10px] text-amber-400/70 mt-1">Refill recommended</div>
+            </div>
+
+            <div className="p-3 rounded-2xl bg-rose-950/20 border border-rose-500/30">
+              <div className="flex items-center justify-between text-xs">
+                <span className="font-bold text-rose-400">🔴 Finished / Empty</span>
+                <span className="font-mono font-black text-rose-300 text-base">
+                  {curryPots.filter((p) => p.potStatus === 'FINISHED').length}
+                </span>
+              </div>
+              <div className="text-[10px] text-rose-400/70 mt-1">Hidden from billing</div>
+            </div>
+          </div>
+
+          {/* TOP 6 ACTIVE POTS PREVIEW */}
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-2 pt-1">
+            {curryPots.slice(0, 6).map((pot) => (
+              <div
+                key={pot.id}
+                className="p-2.5 rounded-xl bg-slate-950/60 border border-slate-800/80 flex items-center justify-between"
+              >
+                <div className="truncate pr-2">
+                  <div className="text-xs font-bold text-slate-200 truncate">{pot.name}</div>
+                  <div className="text-[10px] text-slate-500 font-mono">
+                    S: ₹{pot.priceSmall} | M: ₹{pot.priceMedium}
+                  </div>
+                </div>
+                <span
+                  className={`px-2 py-0.5 rounded-md text-[9px] font-black uppercase whitespace-nowrap ${
+                    pot.potStatus === 'FULL_POT'
+                      ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+                      : pot.potStatus === 'HALF_POT'
+                      ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
+                      : 'bg-rose-500/20 text-rose-300 border border-rose-500/30'
+                  }`}
+                >
+                  {pot.potStatus === 'FULL_POT' ? 'Full' : pot.potStatus === 'HALF_POT' ? 'Low' : 'Empty'}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* FAST FOOD ONLY: LIVE TOKEN QUEUE & KITCHEN DISPLAY WIDGET */}
+      {(!caps.isTiffinsMeals && !caps.isCurryPoint && (caps.isFastFood || caps.canManageTokens)) && (
+        <div className="glass-panel p-5 rounded-3xl border border-amber-500/30 bg-gradient-to-r from-amber-950/20 via-slate-900 to-slate-900 space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="flex items-center space-x-2.5">
+              <span className="p-2 rounded-xl bg-amber-500 text-slate-950 text-base font-black shadow-md shadow-amber-500/20">
+                ⚡
+              </span>
+              <div>
+                <div className="flex items-center space-x-2">
+                  <h2 className="text-base md:text-lg font-extrabold font-heading text-slate-100">
+                    Counter Token Queue &amp; Kitchen Status
+                  </h2>
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                    {tokens.filter((t) => t.status === 'PREPARING' || t.status === 'READY_FOR_PICKUP').length} Active
+                  </span>
+                </div>
+                <p className="text-xs text-slate-400">
+                  Live counter order tokens, grill/fryer timers, ready alerts &amp; customer TV display.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center space-x-2 self-start sm:self-auto">
+              <Link
+                to="/tokens"
+                className="px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-extrabold transition shadow-md shadow-amber-500/20 flex items-center space-x-1.5"
+              >
+                <Tv className="w-3.5 h-3.5" />
+                <span>Launch TV Display</span>
+                <ChevronRight className="w-4 h-4" />
+              </Link>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-1">
+            {/* PREPARING TOKENS PILL CLUSTER */}
+            <div className="p-4 rounded-2xl bg-slate-950/70 border border-slate-800 space-y-2">
+              <div className="flex items-center justify-between text-xs">
+                <span className="text-amber-400 font-bold flex items-center space-x-1">
+                  <Flame className="w-3.5 h-3.5 animate-pulse" />
+                  <span>Now Cooking in Kitchen</span>
+                </span>
+                <span className="font-mono text-slate-400 text-[11px]">
+                  {tokens.filter((t) => t.status === 'PREPARING').length} tokens
+                </span>
+              </div>
+              <div className="flex flex-wrap gap-2 pt-1 min-h-[44px] items-center">
+                {tokens.filter((t) => t.status === 'PREPARING').length === 0 ? (
+                  <span className="text-xs text-slate-500 italic">No orders currently in kitchen.</span>
+                ) : (
+                  tokens
+                    .filter((t) => t.status === 'PREPARING')
+                    .slice(0, 8)
+                    .map((t) => (
+                      <span
+                        key={t.id}
+                        className="px-2.5 py-1 rounded-xl bg-slate-900 border border-amber-500/40 text-amber-300 font-mono font-black text-sm"
+                      >
+                        {t.tokenDisplay}
+                      </span>
+                    ))
+                )}
+              </div>
+            </div>
+
+            {/* READY TOKENS PILL CLUSTER */}
+            <div className="p-4 rounded-2xl bg-slate-950/70 border border-slate-800 space-y-2">
+              <div className="flex items-center justify-between text-xs">
+                <span className="text-emerald-400 font-bold flex items-center space-x-1">
+                  <Bell className="w-3.5 h-3.5 animate-bounce" />
+                  <span>Ready at Counter for Pickup</span>
+                </span>
+                <span className="font-mono text-slate-400 text-[11px]">
+                  {tokens.filter((t) => t.status === 'READY_FOR_PICKUP').length} tokens
+                </span>
+              </div>
+              <div className="flex flex-wrap gap-2 pt-1 min-h-[44px] items-center">
+                {tokens.filter((t) => t.status === 'READY_FOR_PICKUP').length === 0 ? (
+                  <span className="text-xs text-slate-500 italic">No tokens waiting at counter.</span>
+                ) : (
+                  tokens
+                    .filter((t) => t.status === 'READY_FOR_PICKUP')
+                    .slice(0, 8)
+                    .map((t) => (
+                      <span
+                        key={t.id}
+                        className="px-2.5 py-1 rounded-xl bg-emerald-500/20 border border-emerald-500 text-emerald-300 font-mono font-black text-sm animate-pulse"
+                      >
+                        {t.tokenDisplay}
+                      </span>
+                    ))
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* LIVE ORDERS ALERT SECTION */}
       <div className="glass-panel p-6 rounded-3xl border border-slate-800">
@@ -439,6 +956,28 @@ export const FoodDashboard: React.FC = () => {
           </div>
         )}
       </div>
+
+      {/* TODAY'S DAILY CURRY BOARD MODAL */}
+      <DailyCurryBoardModal
+        isOpen={isDailyBoardModalOpen}
+        onClose={() => {
+          setIsDailyBoardModalOpen(false);
+          setDailyBoard(tiffinMealsStorage.getDailyBoard(restaurant?._id));
+        }}
+        restaurantId={restaurant?._id}
+        restaurantName={restaurant?.restaurantName}
+      />
+
+      {/* CURRY POINT LIVE HANDI BOARD MODAL */}
+      <LiveHandiBoardModal
+        isOpen={isHandiBoardModalOpen}
+        onClose={() => {
+          setIsHandiBoardModalOpen(false);
+          setCurryPots(curryPointStorage.getPots(restaurant?._id));
+        }}
+        restaurantId={restaurant?._id}
+        restaurantName={restaurant?.restaurantName}
+      />
     </div>
   );
 };

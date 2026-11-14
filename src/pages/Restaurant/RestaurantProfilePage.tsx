@@ -13,12 +13,19 @@ import {
   Clock,
   Eye,
   CheckCircle2,
+  Truck,
+  Percent,
 } from 'lucide-react';
 import { foodService } from '../../services/foodService';
 import { useFoodAuthStore } from '../../store/useFoodAuthStore';
+import { getBusinessCapabilities } from '../../utils/businessCapabilities';
 
 export const RestaurantProfilePage: React.FC = () => {
-  const { setRestaurantData } = useFoodAuthStore();
+  const { restaurant, setRestaurantData } = useFoodAuthStore();
+  const caps = React.useMemo(
+    () => getBusinessCapabilities(restaurant?.businessType, restaurant?.diningEnabled, restaurant?.cuisines),
+    [restaurant?.businessType, restaurant?.diningEnabled, restaurant?.cuisines]
+  );
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -71,7 +78,15 @@ export const RestaurantProfilePage: React.FC = () => {
     bannerImage: '',
 
     fssaiNumber: '',
+    hasGst: false,
     gstNumber: '',
+    gstPricingMode: 'inclusive' as 'inclusive' | 'exclusive',
+    gstRate: 5,
+    deliveryMode: 'platform_delivery' as 'platform_delivery' | 'self_delivery' | 'pickup_only',
+    isSelfDelivery: false,
+    isSelfPickup: true,
+    deliveryRadiusKm: 5,
+    deliveryCharge: 0,
     panNumber: '',
 
     phone: '',
@@ -92,9 +107,13 @@ export const RestaurantProfilePage: React.FC = () => {
   const normalizeBusinessType = (bt?: string) => {
     if (!bt) return 'RESTAURANT';
     const u = bt.toUpperCase();
-    if (u.includes('CAFE') || u.includes('BAKER')) return 'CAFE_BAKERY';
+    if (u === 'CURRY_POINT' || u.includes('CURRY') || u.includes('ROTI_POINT')) return 'CURRY_POINT';
+    if (u === 'TIFFINS_MEALS' || u.includes('TIFFIN') || u.includes('MEAL') || u.includes('MESS') || u.includes('UDUPI') || u.includes('DARSHINI')) return 'TIFFINS_MEALS';
+    if (u === 'FAST_FOOD' || u.includes('FAST') || u.includes('QSR') || u.includes('BURGER') || u.includes('PIZZA')) return 'FAST_FOOD';
+    if (u === 'BAKERY' || u.includes('BAKER') || u.includes('CAKE') || u.includes('PASTRY')) return 'BAKERY';
+    if (u.includes('CAFE')) return 'CAFE_BAKERY';
     if (u.includes('SWEET') || u.includes('DESSERT')) return 'SWEETS_DESSERTS';
-    if (u.includes('STREET')) return 'STREET_FOOD';
+    if (u.includes('STREET') || u.includes('CHAAT')) return 'STREET_FOOD';
     return 'RESTAURANT';
   };
 
@@ -116,7 +135,15 @@ export const RestaurantProfilePage: React.FC = () => {
           bannerImage: p.bannerImage || p.coverImage || '',
 
           fssaiNumber: p.fssaiNumber || '',
+          hasGst: Boolean(p.hasGst || (p.gstNumber && p.gstNumber.trim().length > 0)),
           gstNumber: p.gstNumber || '',
+          gstPricingMode: p.gstPricingMode || 'inclusive',
+          gstRate: p.gstRate !== undefined ? Number(p.gstRate) : 5,
+          deliveryMode: p.deliveryMode || (p.isSelfDelivery ? 'self_delivery' : 'platform_delivery'),
+          isSelfDelivery: Boolean(p.isSelfDelivery || p.deliveryMode === 'self_delivery'),
+          isSelfPickup: p.isSelfPickup !== undefined ? Boolean(p.isSelfPickup) : true,
+          deliveryRadiusKm: p.deliveryRadiusKm !== undefined ? Number(p.deliveryRadiusKm) : 5,
+          deliveryCharge: p.deliveryCharge !== undefined ? Number(p.deliveryCharge) : 0,
           panNumber: p.panNumber || '',
 
           phone: p.phone || '',
@@ -180,12 +207,18 @@ export const RestaurantProfilePage: React.FC = () => {
       {/* HEADER */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-extrabold font-heading text-slate-100 flex items-center space-x-2">
-            <Building2 className="w-6 h-6 text-amber-400" />
-            <span>Public Restaurant Profile & Storefront</span>
-          </h1>
-          <p className="text-xs text-slate-400 mt-0.5">
-            Configure your restaurant display banner, cuisines, FSSAI compliance, address, and customer app card
+          <div className="flex items-center space-x-2">
+            <span className="p-1.5 rounded-xl text-base bg-amber-500/10 text-amber-400 border border-amber-500/20">
+              {caps.formatBadgeIcon}
+            </span>
+            <h1 className="text-2xl font-extrabold font-heading text-slate-100">
+              {caps.isBakery ? 'Public Bakery Profile & Storefront' : 'Public Restaurant Profile & Storefront'}
+            </h1>
+          </div>
+          <p className="text-xs text-slate-400 mt-1">
+            {caps.isBakery
+              ? 'Configure your bakery storefront banner, specialty cakes, FSSAI compliance, address, and customer app card.'
+              : 'Configure your restaurant display banner, cuisines, FSSAI compliance, address, and customer app card.'}
           </p>
         </div>
 
@@ -252,8 +285,12 @@ export const RestaurantProfilePage: React.FC = () => {
                     className="w-full px-4 py-2.5 bg-slate-900 border border-slate-800 rounded-xl text-xs text-slate-100 focus:outline-none focus:border-amber-500"
                   >
                     <option value="RESTAURANT">Restaurant / Fine Dining</option>
+                    <option value="CURRY_POINT">Curry Point & Takeaway Counter (Curries & Phulkas)</option>
+                    <option value="TIFFINS_MEALS">South Indian Tiffins, Meals & Mess Center</option>
+                    <option value="FAST_FOOD">Fast Food Center / QSR (Quick Service)</option>
+                    <option value="BAKERY">Bakery, Cake & Pastry Shop</option>
                     <option value="CAFE_BAKERY">Café, Bakery & Beverages</option>
-                    <option value="STREET_FOOD">Street Food & Fast Food</option>
+                    <option value="STREET_FOOD">Street Food & Chaat Stall</option>
                     <option value="SWEETS_DESSERTS">Sweets & Desserts Shop</option>
                   </select>
                 </div>
@@ -337,11 +374,11 @@ export const RestaurantProfilePage: React.FC = () => {
               </div>
             </div>
 
-            {/* SECTION 2: LEGAL & FSSAI COMPLIANCE */}
+            {/* SECTION 2: LEGAL, FSSAI & GST COMPLIANCE */}
             <div className="glass-panel p-6 rounded-3xl border border-slate-800 space-y-4">
               <h2 className="text-sm font-extrabold text-slate-100 font-heading flex items-center space-x-2 pb-2 border-b border-slate-800">
                 <FileText className="w-4 h-4 text-amber-400" />
-                <span>2. FSSAI & Legal Compliance</span>
+                <span>2. FSSAI &amp; GST Tax Compliance</span>
               </h2>
 
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -358,17 +395,6 @@ export const RestaurantProfilePage: React.FC = () => {
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-slate-300 mb-1">GSTIN (Optional)</label>
-                  <input
-                    type="text"
-                    value={formData.gstNumber}
-                    onChange={(e) => setFormData({ ...formData, gstNumber: e.target.value })}
-                    placeholder="15-digit GSTIN"
-                    className="w-full px-4 py-2.5 bg-slate-900 border border-slate-800 rounded-xl text-xs text-slate-100 font-mono focus:outline-none focus:border-amber-500"
-                  />
-                </div>
-
-                <div>
                   <label className="block text-xs font-semibold text-slate-300 mb-1">PAN Number</label>
                   <input
                     type="text"
@@ -378,7 +404,64 @@ export const RestaurantProfilePage: React.FC = () => {
                     className="w-full px-4 py-2.5 bg-slate-900 border border-slate-800 rounded-xl text-xs text-slate-100 font-mono focus:outline-none focus:border-amber-500"
                   />
                 </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1">GST Registered Business?</label>
+                  <div className="flex items-center space-x-3 mt-2">
+                    <label className="flex items-center space-x-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={formData.hasGst}
+                        onChange={(e) => setFormData({ ...formData, hasGst: e.target.checked })}
+                        className="w-4 h-4 rounded text-amber-500 focus:ring-amber-500 accent-amber-500"
+                      />
+                      <span className="text-xs font-semibold text-slate-200">Yes, collect GST</span>
+                    </label>
+                  </div>
+                </div>
               </div>
+
+              {formData.hasGst && (
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-3 border-t border-slate-800/80 bg-amber-500/5 p-4 rounded-2xl border border-amber-500/20">
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-300 mb-1">GSTIN (15-Digit GST Number) *</label>
+                    <input
+                      type="text"
+                      required={formData.hasGst}
+                      value={formData.gstNumber}
+                      onChange={(e) => setFormData({ ...formData, gstNumber: e.target.value.toUpperCase() })}
+                      placeholder="e.g. 36AAAAA0000A1Z5"
+                      className="w-full px-4 py-2.5 bg-slate-900 border border-slate-800 rounded-xl text-xs text-amber-400 font-mono font-bold focus:outline-none focus:border-amber-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-300 mb-1">GST Pricing Mode</label>
+                    <select
+                      value={formData.gstPricingMode}
+                      onChange={(e) => setFormData({ ...formData, gstPricingMode: e.target.value as any })}
+                      className="w-full px-4 py-2.5 bg-slate-900 border border-slate-800 rounded-xl text-xs text-slate-100 focus:outline-none focus:border-amber-500"
+                    >
+                      <option value="inclusive">GST Inclusive (Menu price includes GST)</option>
+                      <option value="exclusive">GST Exclusive (Add GST on checkout bill)</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-300 mb-1">Applicable GST Rate (%)</label>
+                    <select
+                      value={formData.gstRate}
+                      onChange={(e) => setFormData({ ...formData, gstRate: Number(e.target.value) })}
+                      className="w-full px-4 py-2.5 bg-slate-900 border border-slate-800 rounded-xl text-xs text-slate-100 font-mono focus:outline-none focus:border-amber-500"
+                    >
+                      <option value={5}>5% (Standard Restaurant / Food GST)</option>
+                      <option value={12}>12% (Packaged / Specialty Foods)</option>
+                      <option value={18}>18% (Air Conditioned / Luxury Dining)</option>
+                      <option value={0}>0% (Exempted)</option>
+                    </select>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* SECTION 3: ADDRESS & CONTACT LOCATION */}
@@ -466,6 +549,101 @@ export const RestaurantProfilePage: React.FC = () => {
                   />
                 </div>
               </div>
+            </div>
+
+            {/* SECTION 4: DELIVERY LOGISTICS & SELF-DELIVERY FLEET */}
+            <div className="glass-panel p-6 rounded-3xl border border-slate-800 space-y-4">
+              <h2 className="text-sm font-extrabold text-slate-100 font-heading flex items-center space-x-2 pb-2 border-b border-slate-800">
+                <Truck className="w-4 h-4 text-amber-400" />
+                <span>4. Delivery Logistics &amp; Fleet Model</span>
+              </h2>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 mb-2">Delivery Fulfillment Method</label>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setFormData({ ...formData, deliveryMode: 'platform_delivery', isSelfDelivery: false })}
+                    className={`p-3.5 rounded-2xl border text-left transition cursor-pointer ${
+                      formData.deliveryMode === 'platform_delivery'
+                        ? 'bg-amber-500/15 border-amber-500 text-slate-100 ring-1 ring-amber-500/30'
+                        : 'bg-slate-900 border-slate-800 text-slate-400 hover:border-slate-700'
+                    }`}
+                  >
+                    <div className="font-extrabold text-xs text-amber-400 flex items-center gap-1.5 mb-1">
+                      <span>🚴 Platform Delivery</span>
+                    </div>
+                    <div className="text-[11px] text-slate-400">
+                      ApexBee auto-assigns nearby platform delivery partners to pick up and deliver food.
+                    </div>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setFormData({ ...formData, deliveryMode: 'self_delivery', isSelfDelivery: true })}
+                    className={`p-3.5 rounded-2xl border text-left transition cursor-pointer ${
+                      formData.deliveryMode === 'self_delivery'
+                        ? 'bg-emerald-500/15 border-emerald-500 text-slate-100 ring-1 ring-emerald-500/30'
+                        : 'bg-slate-900 border-slate-800 text-slate-400 hover:border-slate-700'
+                    }`}
+                  >
+                    <div className="font-extrabold text-xs text-emerald-400 flex items-center gap-1.5 mb-1">
+                      <span>🚚 Store Self-Delivery</span>
+                    </div>
+                    <div className="text-[11px] text-slate-400">
+                      Our restaurant's staff / in-house riders deliver directly. No external rider OTP required.
+                    </div>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setFormData({ ...formData, deliveryMode: 'pickup_only', isSelfDelivery: false })}
+                    className={`p-3.5 rounded-2xl border text-left transition cursor-pointer ${
+                      formData.deliveryMode === 'pickup_only'
+                        ? 'bg-purple-500/15 border-purple-500 text-slate-100 ring-1 ring-purple-500/30'
+                        : 'bg-slate-900 border-slate-800 text-slate-400 hover:border-slate-700'
+                    }`}
+                  >
+                    <div className="font-extrabold text-xs text-purple-400 flex items-center gap-1.5 mb-1">
+                      <span>🛍️ Takeaway / Pickup Only</span>
+                    </div>
+                    <div className="text-[11px] text-slate-400">
+                      Takeaway counter &amp; dine-in only. No door-to-door delivery dispatched.
+                    </div>
+                  </button>
+                </div>
+              </div>
+
+              {formData.deliveryMode === 'self_delivery' && (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-3 border-t border-slate-800/80 bg-emerald-500/5 p-4 rounded-2xl border border-emerald-500/20">
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-300 mb-1">Self-Delivery Radius (KM)</label>
+                    <input
+                      type="number"
+                      min={1}
+                      max={50}
+                      value={formData.deliveryRadiusKm}
+                      onChange={(e) => setFormData({ ...formData, deliveryRadiusKm: Number(e.target.value) })}
+                      placeholder="e.g. 5"
+                      className="w-full px-4 py-2.5 bg-slate-900 border border-slate-800 rounded-xl text-xs text-slate-100 font-mono focus:outline-none focus:border-amber-500"
+                    />
+                    <span className="text-[10px] text-slate-400 mt-1 block">Maximum distance our store riders will deliver.</span>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-300 mb-1">Store Delivery Charge (₹)</label>
+                    <input
+                      type="number"
+                      min={0}
+                      value={formData.deliveryCharge}
+                      onChange={(e) => setFormData({ ...formData, deliveryCharge: Number(e.target.value) })}
+                      placeholder="e.g. 0 for Free Delivery or 30"
+                      className="w-full px-4 py-2.5 bg-slate-900 border border-slate-800 rounded-xl text-xs text-emerald-400 font-mono font-bold focus:outline-none focus:border-amber-500"
+                    />
+                    <span className="text-[10px] text-slate-400 mt-1 block">Flat customer delivery charge added to order total.</span>
+                  </div>
+                </div>
+              )}
             </div>
           </form>
 

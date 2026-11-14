@@ -72,7 +72,8 @@ export const foodService = {
   updateTableQR: (id: string, data: any) => api.put(`/tables/qr/${id}`, data),
   deleteTableQR: (id: string) => api.delete(`/tables/qr/${id}`),
   generateAllSeparateTableQRs: (data?: any) => api.post('/tables/qr/generate-all', data || {}),
-  getScannedMenu: (tokenOrTable: string) => publicCustomerFoodApi.get(`/qr-menu/${tokenOrTable}`),
+  getScannedMenu: (tokenOrTable: string, restaurantId?: string) =>
+    publicCustomerFoodApi.get(`/qr-menu/${tokenOrTable}${restaurantId ? `?restaurantId=${restaurantId}` : ''}`),
   placeCustomerTableOrder: (orderData: any) => publicCustomerFoodApi.post('/qr-menu/order', orderData),
 
   // --- FINANCE & ANALYTICS ---

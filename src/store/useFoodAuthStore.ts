@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { IRestaurantProfile, IRestaurantSettings, FoodPartnerCapabilities, FoodStaffRole } from '../types/foodPartner';
+import { qrMenuStorage } from '../services/qrMenuStorage';
 
 interface FoodAuthState {
   token: string | null;
@@ -94,6 +95,7 @@ export const useFoodAuthStore = create<FoodAuthState>((set, get) => ({
     localStorage.removeItem('food_partner_token');
     localStorage.removeItem('food_partner_restaurant');
     localStorage.removeItem('food_partner_user');
+    qrMenuStorage.clearAllCaches();
 
     set({
       token: null,

@@ -24,11 +24,34 @@ import {
 } from '../../services/qrMenuStorage';
 import { QRCodeCard } from '../../components/common/QRCodeCard';
 import { GenerateQRModal } from '../../components/common/GenerateQRModal';
+import { useFoodAuthStore } from '../../store/useFoodAuthStore';
+import { getBusinessCapabilities } from '../../utils/businessCapabilities';
 
 const SECTIONS = ['All Sections', 'Main Dining Hall', 'AC Family Lounge', 'Rooftop Terrace', 'Outdoor Patio', 'Billing Counter'];
 
 export const QRManagementPage: React.FC = () => {
   const navigate = useNavigate();
+  const restaurant = useFoodAuthStore((state) => state.restaurant);
+  const caps = React.useMemo(
+    () => getBusinessCapabilities(restaurant?.businessType, restaurant?.diningEnabled, restaurant?.cuisines),
+    [restaurant?.businessType, restaurant?.diningEnabled, restaurant?.cuisines]
+  );
+
+  const sectionsList = React.useMemo(() => {
+    if (caps.isBakery) {
+      return ['All Sections', 'Billing Counter', 'Pastry Showcase', 'Cake Display Counter', 'Bread Rack'];
+    }
+    if (caps.isCurryPoint) {
+      return ['All Sections', 'Main Curry Billing Counter', 'Veg Curries Counter', 'Non-Veg Pots Counter', 'Phulka & Roti Packing Point'];
+    }
+    if (caps.isTiffinsMeals) {
+      return ['All Sections', 'Main Cashier Counter', 'Dosa Counter Standee', 'Meals Hall Standee', 'Parcel Pickup Counter', 'Filter Coffee Standee'];
+    }
+    if (caps.isFastFood) {
+      return ['All Sections', 'Front Billing Counter', 'Pickup Bay', 'Self-Ordering Kiosk / Standee', 'Drive-thru Window'];
+    }
+    return SECTIONS;
+  }, [caps.isBakery, caps.isCurryPoint, caps.isTiffinsMeals, caps.isFastFood]);
 
   const [qrs, setQrs] = useState<IQRRecord[]>([]);
   const [selectedSection, setSelectedSection] = useState('All Sections');
@@ -58,17 +81,39 @@ export const QRManagementPage: React.FC = () => {
 
   const loadData = async () => {
     try {
-      const tables = await qrMenuStorage.loadTablesFromBackend();
+      const tables = caps.canManageTables ? await qrMenuStorage.loadTablesFromBackend() : [];
       if (tables && tables.length > 0) {
         setQrs(tables);
       } else {
-        setQrs(qrMenuStorage.getQRs());
+        const stored = qrMenuStorage.getQRs();
+        if (stored.length === 0 && !caps.canManageTables) {
+          const counterQR: IQRRecord = {
+            id: 'qr-counter-standee',
+            restaurantId: restaurant?._id,
+            tableNumber: 'Counter',
+            section: 'Billing Counter',
+            capacity: 1,
+            label: `${caps.formatLabel} Counter Scan & Pay Standee`,
+            menuMode: 'ALL_ITEMS',
+            selectedItemIds: [],
+            discountPercent: 0,
+            specialNote: 'Welcome! Scan to view our menu & order directly at the counter.',
+            status: 'AVAILABLE',
+            createdAt: new Date().toISOString(),
+            isActive: true,
+            scanCount: 0,
+          };
+          qrMenuStorage.saveQR(counterQR);
+          setQrs([counterQR]);
+        } else {
+          setQrs(stored);
+        }
       }
       await qrMenuStorage.loadRealMenuItems();
     } catch (e) {
       setQrs(qrMenuStorage.getQRs());
     }
-    const orders = qrMenuStorage.getCustomerOrders();
+    const orders = qrMenuStorage.getCustomerOrders(restaurant?._id);
     setCustomerOrders(orders);
   };
 
@@ -113,24 +158,40 @@ export const QRManagementPage: React.FC = () => {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <div className="flex items-center space-x-2">
-            <span className="p-2 rounded-xl bg-amber-500/10 text-amber-400 border border-amber-500/20">
-              <QrCode className="w-5 h-5" />
+            <span className="p-2 rounded-xl text-base bg-amber-500/10 text-amber-400 border border-amber-500/20">
+              {caps.formatBadgeIcon}
             </span>
             <h1 className="text-xl md:text-2xl font-extrabold text-slate-100 font-heading">
-              QR Code Generation &amp; Digital Menus
+              {caps.isBakery
+                ? 'Bakery Counter Standees & QR Menus'
+                : caps.isCurryPoint
+                ? 'Curry Point Standees & Takeaway QR Menus'
+                : caps.isTiffinsMeals
+                ? 'Tiffins & Meals Standees & Digital QR Menus'
+                : caps.isFastFood
+                ? 'Fast Food Standee QRs & Self-Order Menus'
+                : 'QR Code Generation & Digital Menus'}
             </h1>
           </div>
           <p className="text-xs text-slate-400 mt-1">
-            Generate printable scannable QR standees for dining tables and counters with customized menu offerings.
+            {caps.isBakery
+              ? 'Generate printable scannable QR standees for your bakery counter and display showcases with instant digital ordering.'
+              : caps.isCurryPoint
+              ? 'Generate printable scannable QR standees for your heated curry counter, phulka packing station, and parcel checkout.'
+              : caps.isTiffinsMeals
+              ? 'Generate printable scannable QR standees for cashiers, dosa/meals live counters, and filter coffee points.'
+              : caps.isFastFood
+              ? 'Generate printable scannable QR standees for your counter and pickup bays for zero-wait customer ordering.'
+              : 'Generate printable scannable QR standees for dining tables and counters with customized menu offerings.'}
           </p>
         </div>
 
         <button
           onClick={() => setIsGenerateModalOpen(true)}
-          className="flex items-center justify-center space-x-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-amber-400 hover:from-amber-400 hover:to-amber-300 text-slate-950 font-extrabold text-xs shadow-lg shadow-amber-500/20 transition cursor-pointer"
+          className="flex items-center justify-center space-x-2 px-4 py-2.5 rounded-xl font-extrabold text-xs shadow-lg transition cursor-pointer text-slate-950 bg-gradient-to-r from-amber-500 to-amber-400 hover:from-amber-400 hover:to-amber-300 shadow-amber-500/20"
         >
           <Plus className="w-4 h-4" />
-          <span>Generate New QR Code</span>
+          <span>{caps.canManageTables ? 'Generate Table QR' : 'Generate Standee QR'}</span>
         </button>
       </div>
 
@@ -199,7 +260,9 @@ export const QRManagementPage: React.FC = () => {
         <div className="p-4 rounded-2xl bg-slate-900/60 border border-slate-800">
           <div className="text-[11px] font-medium text-slate-400">Active QR Standees</div>
           <div className="text-2xl font-black text-slate-100 mt-1 font-mono">{qrs.length}</div>
-          <div className="text-[10px] text-emerald-400 mt-0.5">Tables &amp; counters ready</div>
+          <div className="text-[10px] text-emerald-400 mt-0.5">
+            {caps.isBakery ? 'Counter standees ready' : 'Tables & counters ready'}
+          </div>
         </div>
 
         <div className="p-4 rounded-2xl bg-slate-900/60 border border-slate-800">
@@ -224,13 +287,13 @@ export const QRManagementPage: React.FC = () => {
       {/* FILTERS & SEARCH */}
       <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-slate-900/60 border border-slate-800 p-3 rounded-2xl">
         <div className="flex items-center space-x-2 overflow-x-auto pb-1 sm:pb-0">
-          {SECTIONS.map((sec) => (
+          {sectionsList.map((sec) => (
             <button
               key={sec}
               onClick={() => setSelectedSection(sec)}
               className={`px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition ${
                 selectedSection === sec
-                  ? 'bg-amber-500 text-slate-950 font-bold'
+                  ? caps.isBakery ? 'bg-pink-500 text-slate-950 font-bold' : 'bg-amber-500 text-slate-950 font-bold'
                   : 'bg-slate-800/80 text-slate-300 hover:bg-slate-800'
               }`}
             >

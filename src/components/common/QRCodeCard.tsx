@@ -42,8 +42,9 @@ export const QRCodeCard: React.FC<QRCodeCardProps> = ({
         }
       }
     } catch (e) {}
-    return `${baseOrigin}/menu/view?qr=${qrRecord.id}&table=${encodeURIComponent(qrRecord.tableNumber)}`;
-  }, [scanUrl, qrRecord.id, qrRecord.tableNumber]);
+    const restParam = qrRecord.restaurantId ? `&restaurant=${encodeURIComponent(qrRecord.restaurantId)}` : '';
+    return `${baseOrigin}/menu/view?qr=${qrRecord.id}&table=${encodeURIComponent(qrRecord.tableNumber)}${restParam}`;
+  }, [scanUrl, qrRecord.id, qrRecord.tableNumber, qrRecord.restaurantId]);
 
   const qrImageUrl = `https://api.qrserver.com/v1/create-qr-code/?size=320x320&margin=12&ecc=M&data=${encodeURIComponent(targetUrl)}`;
 

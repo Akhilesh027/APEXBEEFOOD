@@ -13,9 +13,14 @@ import {
 } from 'lucide-react';
 import { foodService } from '../../services/foodService';
 import { useFoodAuthStore } from '../../store/useFoodAuthStore';
+import { getBusinessCapabilities } from '../../utils/businessCapabilities';
 
 export const FastAvailability: React.FC = () => {
   const { restaurant, setRestaurantData } = useFoodAuthStore();
+  const caps = React.useMemo(
+    () => getBusinessCapabilities(restaurant?.businessType, restaurant?.diningEnabled, restaurant?.cuisines),
+    [restaurant?.businessType, restaurant?.diningEnabled, restaurant?.cuisines]
+  );
 
   const [loading, setLoading] = useState(true);
   const [categories, setCategories] = useState<any[]>([]);
@@ -86,12 +91,32 @@ export const FastAvailability: React.FC = () => {
       {/* TITLE BAR */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-extrabold font-heading text-slate-100 flex items-center space-x-2">
-            <CheckCircle2 className="w-6 h-6 text-emerald-400" />
-            <span>Fast Stock & Sold Out Control</span>
-          </h1>
-          <p className="text-xs text-slate-400 mt-0.5">
-            1-click toggle menu items as Sold Out or Available during peak kitchen hours
+          <div className="flex items-center space-x-2">
+            <span className={`p-1.5 rounded-xl text-base ${caps.isCurryPoint ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20' : caps.isTiffinsMeals ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20' : caps.isFastFood ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20' : caps.isBakery ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20' : 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'}`}>
+              {caps.formatBadgeIcon}
+            </span>
+            <h1 className="text-2xl font-extrabold font-heading text-slate-100">
+              {caps.isCurryPoint
+                ? 'Handi Pot Curries & Phulkas Stock Out'
+                : caps.isTiffinsMeals
+                ? 'Tiffin Batter, Sambar & Meals Stock Out'
+                : caps.isFastFood
+                ? 'Fast 86 Stock & Rush Hour Availability'
+                : caps.isBakery
+                ? 'Fresh Batch Stock & Sold Out Control'
+                : 'Fast Stock & Sold Out Control'}
+            </h1>
+          </div>
+          <p className="text-xs text-slate-400 mt-1">
+            {caps.isCurryPoint
+              ? 'Instant 1-tap stock out when heated steel handi pots empty or phulka dough exhausts during evening rush'
+              : caps.isTiffinsMeals
+              ? 'Instant 1-tap stock out for Idli/Dosa batter, Poori dough, lunch meals, or daily curries when exhausted'
+              : caps.isFastFood
+              ? 'Instant 1-tap 86 out of patties, buns, beverages, or combo items during peak counter rush'
+              : caps.isBakery
+              ? "1-click toggle today's fresh bakes, cakes, and bread batches as Sold Out or Available"
+              : '1-click toggle menu items as Sold Out or Available during peak kitchen hours'}
           </p>
         </div>
 

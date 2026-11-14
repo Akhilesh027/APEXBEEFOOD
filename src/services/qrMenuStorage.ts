@@ -44,6 +44,7 @@ export interface IQRRecord {
 
 export interface ICustomerPlacedOrder {
   orderId: string;
+  restaurantId?: string;
   qrId: string;
   tableNumber: string;
   customerName?: string;
@@ -64,6 +65,7 @@ export interface ICustomerPlacedOrder {
 
 export interface IWaiterCall {
   id: string;
+  restaurantId?: string;
   tableNumber: string;
   section: string;
   type: 'CALL_WAITER' | 'WATER' | 'BILL' | 'CUTLERY' | 'CLEAN' | 'ORDER_HELP';
@@ -74,17 +76,52 @@ export interface IWaiterCall {
   assignedWaiter?: string;
 }
 
-const STORAGE_KEY_QRS = 'apexbee_food_qrs_v2';
-const STORAGE_KEY_MENU = 'apexbee_cached_real_menu_v2';
-const STORAGE_KEY_CUSTOMER_ORDERS = 'apexbee_customer_orders_v2';
-const STORAGE_KEY_WAITER_REQUESTS = 'apexbee_waiter_requests_v2';
+const getRestaurantScopeId = (): string => {
+  try {
+    const raw = localStorage.getItem('food_partner_restaurant');
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (parsed?._id) return parsed._id;
+    }
+  } catch {}
+  return 'default';
+};
+
+const getMenuKey = () => `apexbee_cached_real_menu_${getRestaurantScopeId()}`;
+const getQRsKey = () => `apexbee_food_qrs_${getRestaurantScopeId()}`;
+const getCustomerOrdersKey = (restId?: string) => `apexbee_customer_orders_${restId || getRestaurantScopeId()}`;
+const getWaiterRequestsKey = (restId?: string) => `apexbee_waiter_requests_${restId || getRestaurantScopeId()}`;
 
 export const qrMenuStorage = {
+  clearAllCaches: () => {
+    try {
+      localStorage.removeItem('apexbee_customer_orders_v2');
+      localStorage.removeItem('apexbee_waiter_requests_v2');
+      localStorage.removeItem('apexbee_food_qrs_v2');
+      localStorage.removeItem('apexbee_cached_real_menu_v2');
+
+      const keysToRemove: string[] = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (
+          key &&
+          (key.startsWith('apexbee_cached_real_menu') ||
+            key.startsWith('apexbee_food_qrs') ||
+            key.startsWith('apexbee_customer_orders') ||
+            key.startsWith('apexbee_waiter_requests'))
+        ) {
+          keysToRemove.push(key);
+        }
+      }
+      keysToRemove.forEach((k) => localStorage.removeItem(k));
+    } catch {}
+  },
+
   // --- FETCH REAL ADDED MENU ITEMS FROM BACKEND ---
   loadRealMenuItems: async (): Promise<IQRMenuItem[]> => {
     try {
       const res = await foodService.getMenuItems();
-      if (res.data?.items && Array.isArray(res.data.items) && res.data.items.length > 0) {
+      if (res.data && Array.isArray(res.data.items)) {
         const mapped: IQRMenuItem[] = res.data.items.map((i: any) => ({
           id: i._id || i.id,
           name: i.name,
@@ -97,27 +134,26 @@ export const qrMenuStorage = {
           isRecommended: !!i.isRecommended,
           preparationMinutes: i.preparationTimeMinutes || 15,
         }));
-        localStorage.setItem(STORAGE_KEY_MENU, JSON.stringify(mapped));
+        localStorage.setItem(getMenuKey(), JSON.stringify(mapped));
         return mapped;
       }
     } catch (e) {
-      // Fallback to cached items
+      // Fallback to this specific restaurant's cached items if network fails
+      try {
+        const cached = localStorage.getItem(getMenuKey());
+        if (cached) {
+          const parsed = JSON.parse(cached);
+          if (Array.isArray(parsed)) return parsed;
+        }
+      } catch (err) {}
     }
-
-    try {
-      const cached = localStorage.getItem(STORAGE_KEY_MENU);
-      if (cached) {
-        const parsed = JSON.parse(cached);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
-      }
-    } catch (e) {}
 
     return [];
   },
 
   getCachedMenuItems: (): IQRMenuItem[] => {
     try {
-      const cached = localStorage.getItem(STORAGE_KEY_MENU);
+      const cached = localStorage.getItem(getMenuKey());
       if (cached) {
         return JSON.parse(cached);
       }
@@ -128,7 +164,7 @@ export const qrMenuStorage = {
   // --- TABLES & SEPARATE QR CODES ---
   getQRs: (): IQRRecord[] => {
     try {
-      const stored = localStorage.getItem(STORAGE_KEY_QRS);
+      const stored = localStorage.getItem(getQRsKey());
       if (stored) {
         return JSON.parse(stored);
       }
@@ -142,6 +178,7 @@ export const qrMenuStorage = {
       if (res.data?.tables && Array.isArray(res.data.tables)) {
         const mapped: IQRRecord[] = res.data.tables.map((t: any) => ({
           id: t.qrToken || t._id,
+          restaurantId: t.restaurantId ? (typeof t.restaurantId === 'object' ? t.restaurantId._id : t.restaurantId) : undefined,
           tableNumber: t.tableNumber,
           section: t.section || 'Main Dining Hall',
           capacity: t.capacity || 4,
@@ -157,7 +194,7 @@ export const qrMenuStorage = {
           scanCount: t.scanCount || 0,
           lastScannedAt: t.lastScannedAt ? new Date(t.lastScannedAt).toLocaleTimeString() : undefined,
         }));
-        localStorage.setItem(STORAGE_KEY_QRS, JSON.stringify(mapped));
+        localStorage.setItem(getQRsKey(), JSON.stringify(mapped));
         return mapped;
       }
     } catch (e) {}
@@ -181,7 +218,7 @@ export const qrMenuStorage = {
       updated = [qr, ...list];
     }
     try {
-      localStorage.setItem(STORAGE_KEY_QRS, JSON.stringify(updated));
+      localStorage.setItem(getQRsKey(), JSON.stringify(updated));
     } catch (e) {}
 
     // Async sync to backend
@@ -203,7 +240,7 @@ export const qrMenuStorage = {
     const list = qrMenuStorage.getQRs();
     const updated = list.filter((q) => q.id !== id);
     try {
-      localStorage.setItem(STORAGE_KEY_QRS, JSON.stringify(updated));
+      localStorage.setItem(getQRsKey(), JSON.stringify(updated));
     } catch (e) {}
     foodService.deleteTableQR(id).catch(() => {});
     return updated;
@@ -230,20 +267,24 @@ export const qrMenuStorage = {
 
   saveCustomerOrder: (order: ICustomerPlacedOrder) => {
     try {
-      const existingStr = localStorage.getItem(STORAGE_KEY_CUSTOMER_ORDERS);
+      const restId = order.restaurantId || getRestaurantScopeId();
+      const storageKey = getCustomerOrdersKey(restId);
+      const existingStr = localStorage.getItem(storageKey);
       const orders: ICustomerPlacedOrder[] = existingStr ? JSON.parse(existingStr) : [];
-      orders.unshift(order);
-      localStorage.setItem(STORAGE_KEY_CUSTOMER_ORDERS, JSON.stringify(orders));
+      const orderWithRest: ICustomerPlacedOrder = { ...order, restaurantId: restId };
+      orders.unshift(orderWithRest);
+      localStorage.setItem(storageKey, JSON.stringify(orders));
 
-      // Dispatch event for instant UI announcement
+      // Dispatch event for instant UI announcement (scoped with restaurantId)
       if (typeof window !== 'undefined') {
-        window.dispatchEvent(new CustomEvent('apexbee:new_order', { detail: order }));
+        window.dispatchEvent(new CustomEvent('apexbee:new_order', { detail: orderWithRest }));
       }
     } catch (e) {}
 
     // Async sync to backend
     foodService.placeCustomerTableOrder({
       qrToken: order.qrId,
+      restaurantId: order.restaurantId,
       tableNumber: order.tableNumber,
       customerName: order.customerName,
       customerPhone: order.customerPhone,
@@ -257,10 +298,26 @@ export const qrMenuStorage = {
     }).catch(() => {});
   },
 
-  getCustomerOrders: (): ICustomerPlacedOrder[] => {
+  getCustomerOrders: (targetRestId?: string): ICustomerPlacedOrder[] => {
     try {
-      const existingStr = localStorage.getItem(STORAGE_KEY_CUSTOMER_ORDERS);
+      const restId = targetRestId || getRestaurantScopeId();
+      const storageKey = getCustomerOrdersKey(restId);
+      const existingStr = localStorage.getItem(storageKey);
       return existingStr ? JSON.parse(existingStr) : [];
+    } catch (e) {
+      return [];
+    }
+  },
+
+  updateCustomerOrderStatus: (orderId: string, status: ICustomerPlacedOrder['status'], targetRestId?: string): ICustomerPlacedOrder[] => {
+    try {
+      const restId = targetRestId || getRestaurantScopeId();
+      const storageKey = getCustomerOrdersKey(restId);
+      const existingStr = localStorage.getItem(storageKey);
+      const orders: ICustomerPlacedOrder[] = existingStr ? JSON.parse(existingStr) : [];
+      const updated = orders.map((o) => (o.orderId === orderId ? { ...o, status } : o));
+      localStorage.setItem(storageKey, JSON.stringify(updated));
+      return updated;
     } catch (e) {
       return [];
     }
@@ -269,20 +326,25 @@ export const qrMenuStorage = {
   // --- LIVE WAITER CALLS & GUEST ASSISTANCE ---
   saveWaiterCall: (call: IWaiterCall) => {
     try {
-      const existingStr = localStorage.getItem(STORAGE_KEY_WAITER_REQUESTS);
+      const restId = call.restaurantId || getRestaurantScopeId();
+      const storageKey = getWaiterRequestsKey(restId);
+      const existingStr = localStorage.getItem(storageKey);
       const calls: IWaiterCall[] = existingStr ? JSON.parse(existingStr) : [];
-      calls.unshift(call);
-      localStorage.setItem(STORAGE_KEY_WAITER_REQUESTS, JSON.stringify(calls));
+      const callWithRest: IWaiterCall = { ...call, restaurantId: restId };
+      calls.unshift(callWithRest);
+      localStorage.setItem(storageKey, JSON.stringify(calls));
 
       if (typeof window !== 'undefined') {
-        window.dispatchEvent(new CustomEvent('apexbee:waiter_call', { detail: call }));
+        window.dispatchEvent(new CustomEvent('apexbee:waiter_call', { detail: callWithRest }));
       }
     } catch (e) {}
   },
 
-  getWaiterCalls: (): IWaiterCall[] => {
+  getWaiterCalls: (targetRestId?: string): IWaiterCall[] => {
     try {
-      const existingStr = localStorage.getItem(STORAGE_KEY_WAITER_REQUESTS);
+      const restId = targetRestId || getRestaurantScopeId();
+      const storageKey = getWaiterRequestsKey(restId);
+      const existingStr = localStorage.getItem(storageKey);
       if (existingStr) {
         return JSON.parse(existingStr);
       }
@@ -290,9 +352,11 @@ export const qrMenuStorage = {
     return [];
   },
 
-  updateWaiterCallStatus: (id: string, status: IWaiterCall['status'], waiter?: string): IWaiterCall[] => {
+  updateWaiterCallStatus: (id: string, status: IWaiterCall['status'], waiter?: string, targetRestId?: string): IWaiterCall[] => {
     try {
-      const existingStr = localStorage.getItem(STORAGE_KEY_WAITER_REQUESTS);
+      const restId = targetRestId || getRestaurantScopeId();
+      const storageKey = getWaiterRequestsKey(restId);
+      const existingStr = localStorage.getItem(storageKey);
       const calls: IWaiterCall[] = existingStr ? JSON.parse(existingStr) : [];
       const updated = calls.map((c) => {
         if (c.id === id) {
@@ -304,7 +368,7 @@ export const qrMenuStorage = {
         }
         return c;
       });
-      localStorage.setItem(STORAGE_KEY_WAITER_REQUESTS, JSON.stringify(updated));
+      localStorage.setItem(storageKey, JSON.stringify(updated));
       return updated;
     } catch (e) {
       return [];

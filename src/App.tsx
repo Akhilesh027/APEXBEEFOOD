@@ -1,7 +1,7 @@
 import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { useFoodAuthStore } from './store/useFoodAuthStore';
-import { FoodPartnerLayout } from './components/layout/FoodPartnerLayout';
+import FoodPartnerLayout from './components/layout/FoodPartnerLayout';
 import { FoodPartnerLogin } from './pages/Auth/FoodPartnerLogin';
 import { OnboardingWizard } from './pages/Onboarding/OnboardingWizard';
 import { FoodDashboard } from './pages/Dashboard/FoodDashboard';
@@ -32,11 +32,30 @@ import { CashRegisterPage } from './pages/CashRegister/CashRegisterPage';
 import { InventorySuppliersPage } from './pages/InventorySuppliers/InventorySuppliersPage';
 import { CustomerMenuView } from './pages/PublicMenu/CustomerMenuView';
 import { QRManagementPage } from './pages/QRManagement/QRManagementPage';
+import { AdvanceCakeOrdersPage } from './pages/Bakery/AdvanceCakeOrdersPage';
+import { TokenKitchenDisplayPage } from './pages/FastFood/TokenKitchenDisplayPage';
+import { getBusinessCapabilities } from './utils/businessCapabilities';
 
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const isAuthenticated = useFoodAuthStore((state) => state.isAuthenticated);
   if (!isAuthenticated) {
     return <Navigate to="/login" replace />;
+  }
+  return <>{children}</>;
+};
+
+const CapabilityRoute: React.FC<{
+  children: React.ReactNode;
+  check: (caps: ReturnType<typeof getBusinessCapabilities>) => boolean;
+}> = ({ children, check }) => {
+  const restaurant = useFoodAuthStore((state) => state.restaurant);
+  const caps = getBusinessCapabilities(
+    restaurant?.businessType,
+    restaurant?.diningEnabled,
+    restaurant?.cuisines
+  );
+  if (!check(caps)) {
+    return <Navigate to="/dashboard" replace />;
   }
   return <>{children}</>;
 };
@@ -76,7 +95,14 @@ export const App: React.FC = () => {
 
           <Route path="restaurant/profile" element={<RestaurantProfilePage />} />
           <Route path="restaurant/hours" element={<OperatingHoursManagement />} />
-          <Route path="dining" element={<DiningManagement />} />
+          <Route
+            path="dining"
+            element={
+              <CapabilityRoute check={(c) => c.canManageDiningBookings}>
+                <DiningManagement />
+              </CapabilityRoute>
+            }
+          />
 
           <Route path="offers" element={<OffersManagement />} />
           <Route path="reviews" element={<ReviewsManagement />} />
@@ -87,11 +113,41 @@ export const App: React.FC = () => {
           <Route path="settings" element={<RestaurantSettingsPage />} />
 
           {/* NEW MODULE ROUTES */}
-          <Route path="tables" element={<TablesManagement />} />
+          <Route
+            path="tables"
+            element={
+              <CapabilityRoute check={(c) => c.canManageTables}>
+                <TablesManagement />
+              </CapabilityRoute>
+            }
+          />
           <Route path="qr-codes" element={<QRManagementPage />} />
-          <Route path="waiter-requests" element={<WaiterRequestsPage />} />
-          <Route path="reservations" element={<ReservationsPage />} />
+          <Route
+            path="waiter-requests"
+            element={
+              <CapabilityRoute check={(c) => c.canManageWaiterRequests}>
+                <WaiterRequestsPage />
+              </CapabilityRoute>
+            }
+          />
+          <Route
+            path="reservations"
+            element={
+              <CapabilityRoute check={(c) => c.canManageReservations}>
+                <ReservationsPage />
+              </CapabilityRoute>
+            }
+          />
           <Route path="pos" element={<POSTerminalPage />} />
+          <Route path="tokens" element={<TokenKitchenDisplayPage />} />
+          <Route
+            path="advance-orders"
+            element={
+              <CapabilityRoute check={(c) => c.canManageCakeInscriptions}>
+                <AdvanceCakeOrdersPage />
+              </CapabilityRoute>
+            }
+          />
           <Route path="customers" element={<CustomersPage />} />
           <Route path="delivery-executives" element={<DeliveryExecutivesPage />} />
           <Route path="expenses" element={<ExpensesPage />} />

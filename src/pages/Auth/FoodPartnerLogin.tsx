@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Utensils, Lock, Phone, Mail, ArrowRight, ShieldCheck, AlertCircle, CheckCircle2, HelpCircle, X } from 'lucide-react';
 import { foodService } from '../../services/foodService';
 import { useFoodAuthStore } from '../../store/useFoodAuthStore';
+import { ApexBeeLogo } from '../../components/common/ApexBeeLogo';
 
 export const FoodPartnerLogin: React.FC = () => {
   const navigate = useNavigate();
@@ -120,12 +121,8 @@ export const FoodPartnerLogin: React.FC = () => {
       <div className="absolute -top-40 -left-40 w-96 h-96 bg-amber-500/10 rounded-full blur-3xl pointer-events-none" />
       <div className="absolute -bottom-40 -right-40 w-96 h-96 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none" />
 
-      <div className="sm:mx-auto sm:w-full sm:max-w-md text-center z-10">
-        <div className="inline-flex p-3 bg-gradient-to-tr from-amber-500 to-amber-400 text-slate-950 rounded-2xl shadow-xl shadow-amber-500/20 mb-4">
-          <Utensils className="w-8 h-8 font-bold" />
-        </div>
-        <h1 className="text-3xl font-extrabold text-slate-100 font-heading tracking-wide">APEXBEE FOOD</h1>
-        <p className="mt-1 text-xs font-semibold text-amber-400 uppercase tracking-widest">Restaurant Partner Portal</p>
+      <div className="sm:mx-auto sm:w-full sm:max-w-md text-center z-10 flex flex-col items-center mb-2">
+        <ApexBeeLogo height={52} subtitle="Food & Bakery Partner OS" />
       </div>
 
       <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md z-10 px-4">

@@ -16,11 +16,20 @@ import {
   ArrowUpDown,
   Power,
   QrCode,
+  X,
 } from 'lucide-react';
 import { foodService } from '../../services/foodService';
 import { IFoodMenuItem, IFoodMenuCategory } from '../../types/foodPartner';
+import { useFoodAuthStore } from '../../store/useFoodAuthStore';
+import { getBusinessCapabilities } from '../../utils/businessCapabilities';
 
 export const MenuManagement: React.FC = () => {
+  const restaurant = useFoodAuthStore((state) => state.restaurant);
+  const caps = React.useMemo(
+    () => getBusinessCapabilities(restaurant?.businessType, restaurant?.diningEnabled, restaurant?.cuisines),
+    [restaurant?.businessType, restaurant?.diningEnabled, restaurant?.cuisines]
+  );
+
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -84,6 +93,9 @@ export const MenuManagement: React.FC = () => {
     imageUrl: '',
     packagingCharge: 0,
     shippingCharge: 0,
+    gstRate: 5,
+    gstPricingMode: 'inclusive' as 'inclusive' | 'exclusive',
+    deliveryMode: 'default' as 'default' | 'platform_delivery' | 'self_delivery' | 'pickup_only',
     isPreOrder: false,
     preOrderType: 'ADVANCE_NOTICE' as 'ADVANCE_NOTICE' | 'DAILY_CUTOFF' | 'RELEASE_DATE',
     preOrderLeadTimeDays: 2,
@@ -115,8 +127,10 @@ export const MenuManagement: React.FC = () => {
       if (loadedCats.length === 0) {
         try {
           const defaultCatRes = await foodService.createCategory({
-            name: 'Main Course',
-            description: 'Popular main course delicacies and chef specials',
+            name: caps.isBakery ? 'Cakes & Pastries' : 'Main Course',
+            description: caps.isBakery
+              ? 'Fresh celebration cakes, pastries and bakery treats'
+              : 'Popular main course delicacies and chef specials',
             sortOrder: 1,
           });
           if (defaultCatRes.data?.category) {
@@ -250,6 +264,9 @@ export const MenuManagement: React.FC = () => {
         imageUrl: '',
         packagingCharge: 0,
         shippingCharge: 0,
+        gstRate: 5,
+        gstPricingMode: 'inclusive',
+        deliveryMode: 'default',
         isPreOrder: false,
         preOrderType: 'ADVANCE_NOTICE',
         preOrderLeadTimeDays: 2,
@@ -279,6 +296,9 @@ export const MenuManagement: React.FC = () => {
       imageUrl: item.imageUrl || item.image || '',
       packagingCharge: item.packagingCharge || (item as any).packingCharge || 0,
       shippingCharge: (item as any).shippingCharge || (item as any).deliveryFee || 0,
+      gstRate: (item as any).gstRate !== undefined ? Number((item as any).gstRate) : 5,
+      gstPricingMode: (item as any).gstPricingMode || 'inclusive',
+      deliveryMode: (item as any).deliveryMode || 'default',
       isPreOrder: Boolean(item.isPreOrder),
       preOrderType: (item.preOrderType || 'ADVANCE_NOTICE') as any,
       preOrderLeadTimeDays: item.preOrderLeadTimeDays ?? 2,
@@ -324,12 +344,18 @@ export const MenuManagement: React.FC = () => {
       {/* HEADER BAR */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-extrabold font-heading text-slate-100 flex items-center space-x-2">
-            <BookOpen className="w-6 h-6 text-amber-400" />
-            <span>Restaurant Menu & Category Engine</span>
-          </h1>
-          <p className="text-xs text-slate-400 mt-0.5">
-            Manage food categories, dish items, pricing, veg/non-veg tags & instant availability
+          <div className="flex items-center space-x-2">
+            <span className="p-1.5 rounded-xl text-base bg-amber-500/10 text-amber-400 border border-amber-500/20">
+              {caps.formatBadgeIcon}
+            </span>
+            <h1 className="text-2xl font-extrabold font-heading text-slate-100">
+              {caps.isBakery ? 'Bakery Catalog & Cake Management' : 'Restaurant Menu & Category Engine'}
+            </h1>
+          </div>
+          <p className="text-xs text-slate-400 mt-1">
+            {caps.isBakery
+              ? 'Manage cakes, pastries, breads, daily bakes, eggless tags and advance pre-order lead times.'
+              : 'Add, update and organize food dishes, categories, dietary preferences and pricing.'}
           </p>
         </div>
 
@@ -344,7 +370,7 @@ export const MenuManagement: React.FC = () => {
             }`}
           >
             <UtensilsCrossed className="w-4 h-4" />
-            <span>Dishes / Items ({items.length})</span>
+            <span>{caps.isBakery ? 'Cakes & Bakery Items' : 'Dishes / Items'} ({items.length})</span>
           </button>
           <button
             onClick={() => handleTabSwitch('categories')}
@@ -355,7 +381,7 @@ export const MenuManagement: React.FC = () => {
             }`}
           >
             <Layers className="w-4 h-4" />
-            <span>Menu Categories ({categories.length})</span>
+            <span>{caps.isBakery ? 'Bakery Categories' : 'Menu Categories'} ({categories.length})</span>
           </button>
         </div>
       </div>
@@ -420,17 +446,23 @@ export const MenuManagement: React.FC = () => {
                 });
                 setShowItemModal(true);
               }}
-              className="px-4 py-1.5 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold rounded-xl text-xs transition shadow-md whitespace-nowrap cursor-pointer"
+              className={`px-4 py-1.5 font-bold rounded-xl text-xs transition shadow-md whitespace-nowrap cursor-pointer ${
+                caps.isBakery
+                  ? 'bg-pink-500 hover:bg-pink-400 text-slate-950 shadow-pink-500/20'
+                  : 'bg-amber-500 hover:bg-amber-400 text-slate-950 shadow-amber-500/20'
+              }`}
             >
-              + Add Dish
+              {caps.isBakery ? '+ Add Cake / Item' : '+ Add Dish'}
             </button>
 
             <button
               onClick={() => navigate('/qr-codes')}
-              className="px-3.5 py-1.5 bg-slate-900 hover:bg-slate-800 text-amber-400 border border-amber-500/30 hover:border-amber-500 font-bold rounded-xl text-xs transition shadow-sm whitespace-nowrap cursor-pointer flex items-center space-x-1.5"
+              className={`px-3.5 py-1.5 bg-slate-900 hover:bg-slate-800 border font-bold rounded-xl text-xs transition shadow-sm whitespace-nowrap cursor-pointer flex items-center space-x-1.5 ${
+                caps.isBakery ? 'text-pink-400 border-pink-500/30 hover:border-pink-500' : 'text-amber-400 border-amber-500/30 hover:border-amber-500'
+              }`}
             >
               <QrCode className="w-3.5 h-3.5" />
-              <span>Table QR Menus</span>
+              <span>{caps.canManageTables ? 'Table QR Menus' : 'Counter Standee QR'}</span>
             </button>
           </div>
         ) : (
@@ -455,7 +487,11 @@ export const MenuManagement: React.FC = () => {
                 <Layers className="w-6 h-6" />
               </div>
               <h3 className="font-extrabold text-slate-200 text-base">No Menu Categories Found</h3>
-              <p className="text-xs text-slate-400">Create menu categories like Biryani, Starters, Main Course, or Desserts.</p>
+              <p className="text-xs text-slate-400">
+                {caps.isBakery
+                  ? 'Create bakery categories like Celebration Cakes, Pastries, Fresh Breads, Cookies, or Savories.'
+                  : 'Create menu categories like Biryani, Starters, Main Course, or Desserts.'}
+              </p>
               <button
                 onClick={() => handleOpenCategoryModal()}
                 className="px-5 py-2.5 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold rounded-xl text-xs transition shadow-lg cursor-pointer"
@@ -653,6 +689,19 @@ export const MenuManagement: React.FC = () => {
                           <Clock className="w-3 h-3 text-slate-500" />
                           <span>{item.preparationTimeMinutes || 20}m</span>
                         </span>
+                        <span className="px-2 py-0.5 bg-slate-800 text-slate-300 font-bold rounded-full border border-slate-700 text-[10px]">
+                          GST: {(item as any).gstRate !== undefined ? (item as any).gstRate : 5}% ({((item as any).gstPricingMode || 'inclusive') === 'inclusive' ? 'Incl' : 'Excl'})
+                        </span>
+                        {(item as any).deliveryMode === 'self_delivery' && (
+                          <span className="px-2 py-0.5 bg-emerald-500/15 text-emerald-300 font-bold rounded-full border border-emerald-500/30 text-[10px]">
+                            🚚 Self-Delivery
+                          </span>
+                        )}
+                        {(item as any).deliveryMode === 'pickup_only' && (
+                          <span className="px-2 py-0.5 bg-purple-500/15 text-purple-300 font-bold rounded-full border border-purple-500/30 text-[10px]">
+                            🛍️ Pickup Only
+                          </span>
+                        )}
                       </div>
 
                       {/* APPROVAL & COMMISSION STATUS BANNER */}
@@ -742,11 +791,23 @@ export const MenuManagement: React.FC = () => {
 
       {/* CREATE / EDIT CATEGORY MODAL */}
       {showCategoryModal && (
-        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4 z-50">
-          <div className="glass-panel p-6 rounded-3xl border border-slate-800 w-full max-w-md space-y-4">
-            <h2 className="text-lg font-bold text-slate-100 font-heading">
-              {editingCategory ? 'Edit Menu Category' : 'Add Food Menu Category'}
-            </h2>
+        <div className="fixed inset-0 bg-slate-950/85 backdrop-blur-md flex items-center justify-center p-3 sm:p-4 z-50 overflow-y-auto animate-in fade-in duration-200">
+          <div className="glass-panel p-5 sm:p-6 rounded-2xl sm:rounded-3xl border border-slate-800 w-full max-w-md space-y-4 my-auto shadow-2xl">
+            <div className="flex items-center justify-between border-b border-slate-800/80 pb-3">
+              <h2 className="text-base sm:text-lg font-bold text-slate-100 font-heading">
+                {editingCategory ? 'Edit Menu Category' : 'Add Food Menu Category'}
+              </h2>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowCategoryModal(false);
+                  setEditingCategory(null);
+                }}
+                className="w-7 h-7 rounded-full bg-slate-900 hover:bg-slate-800 text-slate-400 hover:text-white flex items-center justify-center transition border border-slate-800 cursor-pointer"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </div>
             <form onSubmit={handleSaveCategory} className="space-y-4">
               <div>
                 <label className="block text-xs font-semibold text-slate-300 mb-1">Category Name *</label>
@@ -788,11 +849,11 @@ export const MenuManagement: React.FC = () => {
                     setShowCategoryModal(false);
                     setEditingCategory(null);
                   }}
-                  className="px-4 py-2 bg-slate-900 text-slate-400 text-xs font-semibold rounded-xl"
+                  className="px-4 py-2 bg-slate-900 text-slate-400 text-xs font-semibold rounded-xl hover:text-white transition cursor-pointer"
                 >
                   Cancel
                 </button>
-                <button type="submit" className="px-5 py-2 bg-amber-500 text-slate-950 font-bold text-xs rounded-xl shadow-md">
+                <button type="submit" className="px-5 py-2 bg-amber-500 text-slate-950 font-bold text-xs rounded-xl shadow-md hover:bg-amber-400 transition cursor-pointer">
                   {editingCategory ? 'Update Category' : 'Save Category'}
                 </button>
               </div>
@@ -803,285 +864,389 @@ export const MenuManagement: React.FC = () => {
 
       {/* CREATE / EDIT MENU ITEM MODAL */}
       {showItemModal && (
-        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4 z-50 overflow-y-auto">
-          <div className="glass-panel p-6 rounded-3xl border border-slate-800 w-full max-w-lg space-y-4 my-8">
-            <h2 className="text-lg font-bold text-slate-100 font-heading">
-              {editingItem ? 'Edit Food Menu Item' : 'Add New Food Menu Item'}
-            </h2>
-            <form onSubmit={handleSaveItem} className="space-y-4">
-              <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1">Item / Dish Name *</label>
-                <input
-                  type="text"
-                  required
-                  value={newItemData.name}
-                  onChange={(e) => setNewItemData({ ...newItemData, name: e.target.value })}
-                  placeholder="e.g. Chicken Dum Biryani, Paneer Butter Masala"
-                  className="w-full px-4 py-2.5 bg-slate-900 border border-slate-800 rounded-xl text-xs text-slate-100 focus:outline-none focus:border-amber-500"
-                />
+        <div className="fixed inset-0 bg-slate-950/85 backdrop-blur-md flex items-center justify-center p-2 sm:p-4 md:p-6 z-50 overflow-y-auto animate-in fade-in duration-200">
+          <div className="glass-panel border border-slate-800 w-full max-w-2xl rounded-2xl sm:rounded-3xl shadow-2xl flex flex-col max-h-[94vh] sm:max-h-[90vh] my-auto overflow-hidden">
+            {/* STICKY MODAL HEADER */}
+            <div className="flex items-center justify-between p-4 sm:p-5 border-b border-slate-800 shrink-0 bg-slate-950/80 backdrop-blur-md">
+              <div className="flex items-center space-x-2.5">
+                <div className="p-2 bg-amber-500/10 text-amber-400 rounded-xl border border-amber-500/20">
+                  <UtensilsCrossed className="w-4 h-4 sm:w-5 sm:h-5" />
+                </div>
+                <div>
+                  <h2 className="text-sm sm:text-base font-extrabold text-slate-100 font-heading">
+                    {editingItem
+                      ? (caps.isBakery ? 'Edit Bakery Item' : 'Edit Food Menu Item')
+                      : (caps.isBakery ? 'Add New Cake / Bakery Item' : 'Add New Food Menu Item')}
+                  </h2>
+                  <p className="text-[10px] sm:text-[11px] text-slate-400">
+                    Pricing, dietary labels, GST taxes, prep timing &amp; delivery mode
+                  </p>
+                </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowItemModal(false);
+                  setEditingItem(null);
+                }}
+                className="w-8 h-8 rounded-full bg-slate-900 hover:bg-slate-800 text-slate-400 hover:text-white flex items-center justify-center transition border border-slate-800 cursor-pointer"
+                title="Close Modal"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* FORM BODY & SCROLLABLE CONTENT */}
+            <form onSubmit={handleSaveItem} className="flex flex-col flex-1 overflow-hidden">
+              <div className="overflow-y-auto p-4 sm:p-6 space-y-4 flex-1 overscroll-contain">
                 <div>
-                  <label className="block text-xs font-semibold text-slate-300 mb-1">Menu Category *</label>
-                  <select
+                  <label className="block text-xs font-semibold text-slate-300 mb-1">
+                    {caps.isBakery ? 'Cake / Bakery Item Name *' : 'Item / Dish Name *'}
+                  </label>
+                  <input
+                    type="text"
                     required
-                    value={newItemData.categoryId}
-                    onChange={(e) => setNewItemData({ ...newItemData, categoryId: e.target.value })}
-                    className="w-full px-4 py-2.5 bg-slate-900 border border-slate-800 rounded-xl text-xs text-slate-100 focus:outline-none focus:border-amber-500"
-                  >
-                    {categories.map((c) => (
-                      <option key={c._id} value={c._id}>
-                        {c.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-slate-300 mb-1">Dietary Tag *</label>
-                  <select
-                    value={newItemData.foodType}
-                    onChange={(e) => setNewItemData({ ...newItemData, foodType: e.target.value as any })}
-                    className="w-full px-4 py-2.5 bg-slate-900 border border-slate-800 rounded-xl text-xs text-slate-100 focus:outline-none focus:border-amber-500"
-                  >
-                    <option value="VEG">Pure Veg</option>
-                    <option value="NON_VEG">Non-Veg</option>
-                    <option value="EGG">Egg</option>
-                    <option value="VEGAN">Vegan</option>
-                  </select>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
-                <div>
-                  <label className="block text-xs font-semibold text-slate-300 mb-1">Base Price (₹) *</label>
-                  <input
-                    type="number"
-                    required
-                    value={newItemData.basePrice}
-                    onChange={(e) => setNewItemData({ ...newItemData, basePrice: Number(e.target.value) })}
-                    className="w-full px-3 py-2.5 bg-slate-900 border border-slate-800 rounded-xl text-xs text-slate-100 focus:outline-none focus:border-amber-500"
+                    value={newItemData.name}
+                    onChange={(e) => setNewItemData({ ...newItemData, name: e.target.value })}
+                    placeholder={caps.isBakery ? "e.g. Belgian Dark Chocolate Truffle Cake, Red Velvet Pastry, Sourdough Bread" : "e.g. Chicken Dum Biryani, Paneer Butter Masala"}
+                    className="w-full px-3.5 sm:px-4 py-2 sm:py-2.5 bg-slate-900 border border-slate-800 rounded-xl text-xs sm:text-sm text-slate-100 focus:outline-none focus:border-amber-500"
                   />
                 </div>
 
-                <div>
-                  <label className="block text-xs font-semibold text-slate-300 mb-1">Offer Price (₹)</label>
-                  <input
-                    type="number"
-                    value={newItemData.offerPrice}
-                    onChange={(e) => setNewItemData({ ...newItemData, offerPrice: Number(e.target.value) })}
-                    placeholder="0"
-                    className="w-full px-3 py-2.5 bg-slate-900 border border-slate-800 rounded-xl text-xs text-slate-100 focus:outline-none focus:border-amber-500"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-slate-300 mb-1">Packaging (₹)</label>
-                  <input
-                    type="number"
-                    value={newItemData.packagingCharge}
-                    onChange={(e) => setNewItemData({ ...newItemData, packagingCharge: Number(e.target.value) })}
-                    placeholder="0"
-                    className="w-full px-3 py-2.5 bg-slate-900 border border-slate-800 rounded-xl text-xs text-slate-100 focus:outline-none focus:border-amber-500"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-slate-300 mb-1">Delivery Fee (₹)</label>
-                  <input
-                    type="number"
-                    value={newItemData.shippingCharge}
-                    onChange={(e) => setNewItemData({ ...newItemData, shippingCharge: Number(e.target.value) })}
-                    placeholder="0"
-                    className="w-full px-3 py-2.5 bg-slate-900 border border-slate-800 rounded-xl text-xs text-slate-100 focus:outline-none focus:border-amber-500"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-slate-300 mb-1">Prep Time (Mins)</label>
-                  <input
-                    type="number"
-                    required
-                    value={newItemData.preparationTimeMinutes}
-                    onChange={(e) => setNewItemData({ ...newItemData, preparationTimeMinutes: Number(e.target.value) })}
-                    className="w-full px-3 py-2.5 bg-slate-900 border border-slate-800 rounded-xl text-xs text-slate-100 focus:outline-none focus:border-amber-500"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1">Upload Food Dish Image</label>
-                <div className="flex items-center space-x-2">
-                  <input
-                    type="file"
-                    accept="image/*"
-                    onChange={handleItemImageUpload}
-                    className="text-xs text-slate-400 file:mr-3 file:py-1.5 file:px-3 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-amber-500 file:text-slate-950 hover:file:bg-amber-400 cursor-pointer"
-                  />
-                  {uploadingItemImage && <span className="text-[11px] text-amber-400 font-bold animate-pulse">Uploading Image...</span>}
-                </div>
-                <input
-                  type="text"
-                  value={newItemData.imageUrl}
-                  onChange={(e) => setNewItemData({ ...newItemData, imageUrl: e.target.value })}
-                  placeholder="Or enter direct Image URL (https://...)"
-                  className="w-full mt-2 px-4 py-2 bg-slate-900 border border-slate-800 rounded-xl text-xs text-slate-100 focus:outline-none focus:border-amber-500"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1">Item Description</label>
-                <textarea
-                  rows={2}
-                  value={newItemData.description}
-                  onChange={(e) => setNewItemData({ ...newItemData, description: e.target.value })}
-                  placeholder="Rich aromatic basmati rice cooked with tender marinated chicken..."
-                  className="w-full px-4 py-2.5 bg-slate-900 border border-slate-800 rounded-xl text-xs text-slate-100 focus:outline-none focus:border-amber-500"
-                />
-              </div>
-
-              <div className="flex items-center space-x-6 pt-1">
-                <label className="flex items-center space-x-2 text-xs text-slate-300 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={newItemData.isBestseller}
-                    onChange={(e) => setNewItemData({ ...newItemData, isBestseller: e.target.checked })}
-                    className="rounded text-amber-500 bg-slate-900 border-slate-800 focus:ring-0"
-                  />
-                  <span>Mark as Bestseller</span>
-                </label>
-
-                <label className="flex items-center space-x-2 text-xs text-slate-300 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={newItemData.isRecommended}
-                    onChange={(e) => setNewItemData({ ...newItemData, isRecommended: e.target.checked })}
-                    className="rounded text-amber-500 bg-slate-900 border-slate-800 focus:ring-0"
-                  />
-                  <span>Chef Recommended</span>
-                </label>
-              </div>
-
-              {/* 🎂 PRE-ORDER & ADVANCE SCHEDULING (ApexBee Amber & Navy Brand) */}
-              <div className="p-4 rounded-2xl bg-slate-900/90 border border-amber-500/40 space-y-3">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-2">
-                    <span className="text-lg">🎂</span>
-                    <div>
-                      <h4 className="text-xs font-bold text-amber-400">
-                        Pre-Order &amp; Advance Notice
-                      </h4>
-                      <p className="text-[10px] text-slate-400">
-                        Enable for custom bakery cakes, catering, or items requiring advance booking.
-                      </p>
-                    </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-300 mb-1">Menu Category *</label>
+                    <select
+                      required
+                      value={newItemData.categoryId}
+                      onChange={(e) => setNewItemData({ ...newItemData, categoryId: e.target.value })}
+                      className="w-full px-3.5 sm:px-4 py-2 sm:py-2.5 bg-slate-900 border border-slate-800 rounded-xl text-xs text-slate-100 focus:outline-none focus:border-amber-500"
+                    >
+                      {categories.map((c) => (
+                        <option key={c._id} value={c._id}>
+                          {c.name}
+                        </option>
+                      ))}
+                    </select>
                   </div>
-                  <label className="relative inline-flex items-center cursor-pointer">
+
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-300 mb-1">Dietary Tag *</label>
+                    <select
+                      value={newItemData.foodType}
+                      onChange={(e) => setNewItemData({ ...newItemData, foodType: e.target.value as any })}
+                      className="w-full px-3.5 sm:px-4 py-2 sm:py-2.5 bg-slate-900 border border-slate-800 rounded-xl text-xs text-slate-100 focus:outline-none focus:border-amber-500"
+                    >
+                      <option value="VEG">{caps.isBakery ? '🌿 100% Eggless (Pure Veg)' : 'Pure Veg'}</option>
+                      <option value="EGG">{caps.isBakery ? '🥚 Contains Egg' : 'Egg'}</option>
+                      <option value="NON_VEG">{caps.isBakery ? '🍗 Non-Veg (Savory Puffs/Meat)' : 'Non-Veg'}</option>
+                      <option value="VEGAN">Vegan / Dairy-Free</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 sm:gap-3">
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-300 mb-1">Base Price (₹) *</label>
+                    <input
+                      type="number"
+                      required
+                      value={newItemData.basePrice}
+                      onChange={(e) => setNewItemData({ ...newItemData, basePrice: Number(e.target.value) })}
+                      className="w-full px-3 py-2 sm:py-2.5 bg-slate-900 border border-slate-800 rounded-xl text-xs text-slate-100 focus:outline-none focus:border-amber-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-300 mb-1">Offer Price (₹)</label>
+                    <input
+                      type="number"
+                      value={newItemData.offerPrice}
+                      onChange={(e) => setNewItemData({ ...newItemData, offerPrice: Number(e.target.value) })}
+                      placeholder="0"
+                      className="w-full px-3 py-2 sm:py-2.5 bg-slate-900 border border-slate-800 rounded-xl text-xs text-slate-100 focus:outline-none focus:border-amber-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-300 mb-1">Packaging (₹)</label>
+                    <input
+                      type="number"
+                      value={newItemData.packagingCharge}
+                      onChange={(e) => setNewItemData({ ...newItemData, packagingCharge: Number(e.target.value) })}
+                      placeholder="0"
+                      className="w-full px-3 py-2 sm:py-2.5 bg-slate-900 border border-slate-800 rounded-xl text-xs text-slate-100 focus:outline-none focus:border-amber-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-300 mb-1">Prep Time (Mins)</label>
+                    <input
+                      type="number"
+                      required
+                      value={newItemData.preparationTimeMinutes}
+                      onChange={(e) => setNewItemData({ ...newItemData, preparationTimeMinutes: Number(e.target.value) })}
+                      className="w-full px-3 py-2 sm:py-2.5 bg-slate-900 border border-slate-800 rounded-xl text-xs text-slate-100 focus:outline-none focus:border-amber-500"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1">Upload Food Dish Image</label>
+                  <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={handleItemImageUpload}
+                      className="text-xs text-slate-400 file:mr-3 file:py-1.5 file:px-3 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-amber-500 file:text-slate-950 hover:file:bg-amber-400 cursor-pointer w-full sm:w-auto"
+                    />
+                    {uploadingItemImage && <span className="text-[11px] text-amber-400 font-bold animate-pulse">Uploading Image...</span>}
+                  </div>
+                  <input
+                    type="text"
+                    value={newItemData.imageUrl}
+                    onChange={(e) => setNewItemData({ ...newItemData, imageUrl: e.target.value })}
+                    placeholder="Or enter direct Image URL (https://...)"
+                    className="w-full mt-2 px-3.5 sm:px-4 py-2 bg-slate-900 border border-slate-800 rounded-xl text-xs text-slate-100 focus:outline-none focus:border-amber-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1">Item Description</label>
+                  <textarea
+                    rows={2}
+                    value={newItemData.description}
+                    onChange={(e) => setNewItemData({ ...newItemData, description: e.target.value })}
+                    placeholder="Rich aromatic basmati rice cooked with tender marinated chicken..."
+                    className="w-full px-3.5 sm:px-4 py-2 bg-slate-900 border border-slate-800 rounded-xl text-xs text-slate-100 focus:outline-none focus:border-amber-500"
+                  />
+                </div>
+
+                <div className="flex flex-wrap items-center gap-4 sm:gap-6 pt-1">
+                  <label className="flex items-center space-x-2 text-xs text-slate-300 cursor-pointer">
                     <input
                       type="checkbox"
-                      checked={newItemData.isPreOrder}
-                      onChange={(e) => setNewItemData({ ...newItemData, isPreOrder: e.target.checked })}
-                      className="sr-only peer"
+                      checked={newItemData.isBestseller}
+                      onChange={(e) => setNewItemData({ ...newItemData, isBestseller: e.target.checked })}
+                      className="rounded text-amber-500 bg-slate-900 border-slate-800 focus:ring-0"
                     />
-                    <div className="w-9 h-5 bg-slate-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-amber-500"></div>
+                    <span>Mark as Bestseller</span>
+                  </label>
+
+                  <label className="flex items-center space-x-2 text-xs text-slate-300 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={newItemData.isRecommended}
+                      onChange={(e) => setNewItemData({ ...newItemData, isRecommended: e.target.checked })}
+                      className="rounded text-amber-500 bg-slate-900 border-slate-800 focus:ring-0"
+                    />
+                    <span>Chef Recommended</span>
                   </label>
                 </div>
 
-                {newItemData.isPreOrder && (
-                  <div className="pt-2 border-t border-slate-800 space-y-3">
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                      <div>
-                        <label className="block text-[11px] font-semibold text-slate-300 mb-1">Pre-Order Type</label>
-                        <select
-                          value={newItemData.preOrderType}
-                          onChange={(e: any) => setNewItemData({ ...newItemData, preOrderType: e.target.value })}
-                          className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-xs text-slate-100 focus:outline-none focus:border-amber-500"
-                        >
-                          <option value="ADVANCE_NOTICE">🎂 Advance Notice (e.g. 2 Days)</option>
-                          <option value="DAILY_CUTOFF">⚡ Daily Fresh Cutoff (Next-day)</option>
-                          <option value="RELEASE_DATE">🚀 Launch / Release Date</option>
-                        </select>
-                      </div>
-
-                      <div>
-                        <label className="block text-[11px] font-semibold text-slate-300 mb-1">Preparation Notice (Days)</label>
-                        <select
-                          value={newItemData.preOrderLeadTimeDays}
-                          onChange={(e) => setNewItemData({ ...newItemData, preOrderLeadTimeDays: Number(e.target.value) })}
-                          className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-xs text-slate-100 focus:outline-none focus:border-amber-500"
-                        >
-                          <option value={1}>1 Day Notice</option>
-                          <option value={2}>2 Days Notice (Recommended for Cakes)</option>
-                          <option value={3}>3 Days Notice</option>
-                          <option value={4}>4 Days Notice</option>
-                          <option value={5}>5 Days Notice</option>
-                          <option value={7}>7 Days Notice (1 Week)</option>
-                        </select>
-                      </div>
-                    </div>
-
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                      <div>
-                        <label className="block text-[11px] font-semibold text-slate-300 mb-1">Daily Order Cut-off Time</label>
-                        <input
-                          type="time"
-                          value={newItemData.preOrderDailyCutoffTime}
-                          onChange={(e) => setNewItemData({ ...newItemData, preOrderDailyCutoffTime: e.target.value })}
-                          className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-xs text-slate-100 focus:outline-none focus:border-amber-500"
-                        />
-                        <p className="text-[9.5px] text-slate-500 mt-1">Orders placed after this time start notice from next day.</p>
-                      </div>
-
-                      <div>
-                        <label className="block text-[11px] font-semibold text-slate-300 mb-1">Customer Note Label (Optional Override)</label>
-                        <input
-                          type="text"
-                          value={newItemData.preOrderCustomMessageLabel}
-                          onChange={(e) => setNewItemData({ ...newItemData, preOrderCustomMessageLabel: e.target.value })}
-                          placeholder="Auto-detected based on dish (e.g. Message on Cake, Cooking Instructions)"
-                          className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-xs text-slate-100 focus:outline-none focus:border-amber-500"
-                        />
-                      </div>
-                    </div>
-
-                    <div className="flex flex-wrap items-center gap-4 pt-1">
-                      <label className="flex items-center space-x-2 text-xs text-slate-300 cursor-pointer">
-                        <input
-                          type="checkbox"
-                          checked={newItemData.preOrderAllowCustomMessage}
-                          onChange={(e) => setNewItemData({ ...newItemData, preOrderAllowCustomMessage: e.target.checked })}
-                          className="rounded text-amber-500 bg-slate-950 border-slate-800 focus:ring-0"
-                        />
-                        <span>Allow Customer Inscription / Special Instructions</span>
-                      </label>
-
-                      <label className="flex items-center space-x-2 text-xs text-slate-300 cursor-pointer">
-                        <input
-                          type="checkbox"
-                          checked={newItemData.preOrderAllowTimeSlot}
-                          onChange={(e) => setNewItemData({ ...newItemData, preOrderAllowTimeSlot: e.target.checked })}
-                          className="rounded text-amber-500 bg-slate-950 border-slate-800 focus:ring-0"
-                        />
-                        <span>Allow Slot Preference (Morning/Afternoon/Evening)</span>
-                      </label>
+                {/* GST & TAX COMPLIANCE SELECTOR */}
+                <div className="p-3.5 sm:p-4 rounded-2xl bg-slate-900/90 border border-slate-800 space-y-3">
+                  <div className="flex items-center space-x-2">
+                    <span className="text-base">📑</span>
+                    <div>
+                      <h4 className="text-xs font-bold text-slate-200">GST &amp; Tax Configuration</h4>
+                      <p className="text-[10px] text-slate-400">Select applicable GST rate and whether dish price includes tax.</p>
                     </div>
                   </div>
-                )}
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                    <div>
+                      <label className="block text-[11px] font-semibold text-slate-300 mb-1">Applicable GST Rate</label>
+                      <select
+                        value={newItemData.gstRate}
+                        onChange={(e) => setNewItemData({ ...newItemData, gstRate: Number(e.target.value) })}
+                        className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-xs text-slate-100 font-mono focus:outline-none focus:border-amber-500"
+                      >
+                        <option value={5}>5% (Standard Food / Restaurant GST)</option>
+                        <option value={12}>12% (Packaged / Specialty Foods)</option>
+                        <option value={18}>18% (Luxury / AC / Beverages)</option>
+                        <option value={0}>0% (Tax Exempt / Nil)</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] font-semibold text-slate-300 mb-1">GST Pricing Mode</label>
+                      <select
+                        value={newItemData.gstPricingMode}
+                        onChange={(e) => setNewItemData({ ...newItemData, gstPricingMode: e.target.value as any })}
+                        className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-xs text-slate-100 focus:outline-none focus:border-amber-500"
+                      >
+                        <option value="inclusive">GST Inclusive (Selling price includes tax)</option>
+                        <option value="exclusive">GST Exclusive (Add GST on top at checkout)</option>
+                      </select>
+                    </div>
+                  </div>
+                </div>
+
+                {/* DELIVERY & DISPATCH METHOD SELECTOR */}
+                <div className="p-3.5 sm:p-4 rounded-2xl bg-slate-900/90 border border-slate-800 space-y-3">
+                  <div className="flex items-center space-x-2">
+                    <span className="text-base">🚚</span>
+                    <div>
+                      <h4 className="text-xs font-bold text-slate-200">Delivery &amp; Fulfillment Mode</h4>
+                      <p className="text-[10px] text-slate-400">Choose how this dish is dispatched to customers.</p>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                    <div>
+                      <label className="block text-[11px] font-semibold text-slate-300 mb-1">Fulfillment Mode</label>
+                      <select
+                        value={newItemData.deliveryMode}
+                        onChange={(e) => setNewItemData({ ...newItemData, deliveryMode: e.target.value as any })}
+                        className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-xs text-slate-100 focus:outline-none focus:border-amber-500"
+                      >
+                        <option value="default">Store Default (Follow Restaurant Profile)</option>
+                        <option value="self_delivery">🚚 Store Self-Delivery (Our Store Riders)</option>
+                        <option value="platform_delivery">🚴 Platform Delivery (ApexBee Courier)</option>
+                        <option value="pickup_only">🛍️ Takeaway / Pickup Only</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] font-semibold text-slate-300 mb-1">Delivery Charge Override (₹)</label>
+                      <input
+                        type="number"
+                        min={0}
+                        value={newItemData.shippingCharge}
+                        onChange={(e) => setNewItemData({ ...newItemData, shippingCharge: Number(e.target.value) })}
+                        placeholder="0 for store default / free delivery"
+                        className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-xs text-emerald-400 font-mono font-bold focus:outline-none focus:border-amber-500"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* 🎂 PRE-ORDER & ADVANCE SCHEDULING (ApexBee Amber & Navy Brand) */}
+                <div className="p-3.5 sm:p-4 rounded-2xl bg-slate-900/90 border border-amber-500/40 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-2">
+                      <span className="text-lg">🎂</span>
+                      <div>
+                        <h4 className="text-xs font-bold text-amber-400">
+                          Pre-Order &amp; Advance Notice
+                        </h4>
+                        <p className="text-[10px] text-slate-400">
+                          Enable for custom bakery cakes, catering, or items requiring advance booking.
+                        </p>
+                      </div>
+                    </div>
+                    <label className="relative inline-flex items-center cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={newItemData.isPreOrder}
+                        onChange={(e) => setNewItemData({ ...newItemData, isPreOrder: e.target.checked })}
+                        className="sr-only peer"
+                      />
+                      <div className="w-9 h-5 bg-slate-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-amber-500"></div>
+                    </label>
+                  </div>
+
+                  {newItemData.isPreOrder && (
+                    <div className="pt-2 border-t border-slate-800 space-y-3">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-[11px] font-semibold text-slate-300 mb-1">Pre-Order Type</label>
+                          <select
+                            value={newItemData.preOrderType}
+                            onChange={(e: any) => setNewItemData({ ...newItemData, preOrderType: e.target.value })}
+                            className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-xs text-slate-100 focus:outline-none focus:border-amber-500"
+                          >
+                            <option value="ADVANCE_NOTICE">🎂 Advance Notice (e.g. 2 Days)</option>
+                            <option value="DAILY_CUTOFF">⚡ Daily Fresh Cutoff (Next-day)</option>
+                            <option value="RELEASE_DATE">🚀 Launch / Release Date</option>
+                          </select>
+                        </div>
+
+                        <div>
+                          <label className="block text-[11px] font-semibold text-slate-300 mb-1">Preparation Notice (Days)</label>
+                          <select
+                            value={newItemData.preOrderLeadTimeDays}
+                            onChange={(e) => setNewItemData({ ...newItemData, preOrderLeadTimeDays: Number(e.target.value) })}
+                            className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-xs text-slate-100 focus:outline-none focus:border-amber-500"
+                          >
+                            <option value={1}>1 Day Notice</option>
+                            <option value={2}>2 Days Notice (Recommended for Cakes)</option>
+                            <option value={3}>3 Days Notice</option>
+                            <option value={4}>4 Days Notice</option>
+                            <option value={5}>5 Days Notice</option>
+                            <option value={7}>7 Days Notice (1 Week)</option>
+                          </select>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-[11px] font-semibold text-slate-300 mb-1">Daily Order Cut-off Time</label>
+                          <input
+                            type="time"
+                            value={newItemData.preOrderDailyCutoffTime}
+                            onChange={(e) => setNewItemData({ ...newItemData, preOrderDailyCutoffTime: e.target.value })}
+                            className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-xs text-slate-100 focus:outline-none focus:border-amber-500"
+                          />
+                          <p className="text-[9.5px] text-slate-500 mt-1">Orders placed after this time start notice from next day.</p>
+                        </div>
+
+                        <div>
+                          <label className="block text-[11px] font-semibold text-slate-300 mb-1">Customer Note Label (Optional Override)</label>
+                          <input
+                            type="text"
+                            value={newItemData.preOrderCustomMessageLabel}
+                            onChange={(e) => setNewItemData({ ...newItemData, preOrderCustomMessageLabel: e.target.value })}
+                            placeholder="Auto-detected based on dish (e.g. Message on Cake, Cooking Instructions)"
+                            className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-xs text-slate-100 focus:outline-none focus:border-amber-500"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="flex flex-wrap items-center gap-4 pt-1">
+                        <label className="flex items-center space-x-2 text-xs text-slate-300 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={newItemData.preOrderAllowCustomMessage}
+                            onChange={(e) => setNewItemData({ ...newItemData, preOrderAllowCustomMessage: e.target.checked })}
+                            className="rounded text-amber-500 bg-slate-950 border-slate-800 focus:ring-0"
+                          />
+                          <span>Allow Customer Inscription / Special Instructions</span>
+                        </label>
+
+                        <label className="flex items-center space-x-2 text-xs text-slate-300 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={newItemData.preOrderAllowTimeSlot}
+                            onChange={(e) => setNewItemData({ ...newItemData, preOrderAllowTimeSlot: e.target.checked })}
+                            className="rounded text-amber-500 bg-slate-950 border-slate-800 focus:ring-0"
+                          />
+                          <span>Allow Slot Preference (Morning/Afternoon/Evening)</span>
+                        </label>
+                      </div>
+                    </div>
+                  )}
+                </div>
               </div>
 
-              <div className="flex justify-end space-x-3 pt-2">
+              {/* STICKY FOOTER ACTIONS */}
+              <div className="flex items-center justify-between p-3.5 sm:p-5 border-t border-slate-800 bg-slate-950 shrink-0 gap-3">
                 <button
                   type="button"
                   onClick={() => {
                     setShowItemModal(false);
                     setEditingItem(null);
                   }}
-                  className="px-4 py-2 bg-slate-900 text-slate-400 text-xs font-semibold rounded-xl"
+                  className="px-4 py-2 sm:py-2.5 bg-slate-900 hover:bg-slate-800 text-slate-400 hover:text-white text-xs font-semibold rounded-xl border border-slate-800 transition cursor-pointer"
                 >
                   Cancel
                 </button>
-                <button type="submit" className="px-5 py-2 bg-amber-500 text-slate-950 font-bold text-xs rounded-xl shadow-md">
+                <button
+                  type="submit"
+                  className="px-5 sm:px-6 py-2 sm:py-2.5 bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs rounded-xl shadow-lg shadow-amber-500/20 transition cursor-pointer"
+                >
                   {editingItem ? 'Update Dish' : 'Publish Dish'}
                 </button>
               </div>
